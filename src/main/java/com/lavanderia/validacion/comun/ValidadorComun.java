@@ -17,6 +17,9 @@ public final class ValidadorComun {
     private static final Pattern CORREO =
             Pattern.compile("^[\\w.+\\-]+@[\\w\\-]+(?:\\.[\\w\\-]+)+$");
 
+    private static final Pattern REFERENCIA =
+            Pattern.compile("^[A-Za-z0-9_-]{1,20}$");
+
     private ValidadorComun() {
     }
 
@@ -93,6 +96,19 @@ public final class ValidadorComun {
         if (limpio.length() > 100) {
             throw new ValidacionException(
                     "La dirección es demasiado larga (máx. 100)."
+            );
+        }
+
+        return limpio;
+    }
+
+    public static String referencia(String valor) {
+
+        String limpio = obligatorio(valor, "referencia de la prenda");
+
+        if (!REFERENCIA.matcher(limpio).matches()) {
+            throw new ValidacionException(
+                    "La referencia solo admite letras, números y guiones (máx. 20)."
             );
         }
 
