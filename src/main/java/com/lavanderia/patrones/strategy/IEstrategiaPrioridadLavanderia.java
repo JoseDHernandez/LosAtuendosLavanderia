@@ -1,12 +1,14 @@
+
 package com.lavanderia.patrones.strategy;
 
 import com.lavanderia.modelo.interfaces.ISolicitudLavanderia;
 
 import java.util.List;
 
-public interface EstrategiaLavanderia {
+public interface IEstrategiaPrioridadLavanderia {
+
     List<ISolicitudLavanderia> seleccionarPrendas(
-            List<ISolicitudLavanderia> pendientes,
+            List<ISolicitudLavanderia> solicitudes,
             int cupo
     );
 }

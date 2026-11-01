@@ -5,13 +5,19 @@ import com.lavanderia.modelo.interfaces.IEmpleado;
 import java.util.List;
 import java.util.Optional;
 
-public interface IEmpleadoDAO extends IPersonaDAO {
+
+public interface IEmpleadoDAO {
 
     void guardar(IEmpleado empleado);
 
-    Optional<IEmpleado> buscarEmpleadoPorIdentificacion(
+    List<IEmpleado> listarTodos();
+
+    Optional<IEmpleado> buscarPorIdentificacion(
             String identificacion
     );
 
-    List<IEmpleado> listarEmpleados();
+    void actualizar(
+            String identificacionActual,
+            IEmpleado empleado
+    );
 }

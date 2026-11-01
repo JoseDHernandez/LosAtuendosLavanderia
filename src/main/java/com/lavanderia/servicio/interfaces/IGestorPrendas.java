@@ -1,3 +1,4 @@
+
 package com.lavanderia.servicio.interfaces;
 
 import com.lavanderia.modelo.interfaces.IPrenda;
@@ -8,15 +9,33 @@ import java.util.Optional;
 
 public interface IGestorPrendas {
 
+    // Registro
     IPrenda registrarVestido(Map<String, String> datos);
 
     IPrenda registrarTraje(Map<String, String> datos);
 
     IPrenda registrarDisfraz(Map<String, String> datos);
 
+    // Consultas
     Optional<IPrenda> buscarPorReferencia(String referencia);
 
     List<IPrenda> listarPrendas();
 
     List<IPrenda> buscarPorTalla(String talla);
+
+    // Actualización
+    IPrenda actualizarVestido(
+            String referenciaActual,
+            Map<String, String> datos
+    );
+
+    IPrenda actualizarTraje(
+            String referenciaActual,
+            Map<String, String> datos
+    );
+
+    IPrenda actualizarDisfraz(
+            String referenciaActual,
+            Map<String, String> datos
+    );
 }

@@ -2,6 +2,7 @@
 package com.lavanderia.modelo.alquiler;
 
 import com.lavanderia.modelo.interfaces.IDetalleAlquiler;
+import com.lavanderia.modelo.interfaces.IPrenda;
 import com.lavanderia.modelo.prenda.Prenda;
 
 import java.math.BigDecimal;
@@ -10,12 +11,12 @@ import java.util.Objects;
 public class DetalleAlquiler implements IDetalleAlquiler {
 
     private final long idDetalle;
-    private final Prenda prenda;
+    private final IPrenda prenda;
     private final BigDecimal valorAcordado;
 
     public DetalleAlquiler(
             long idDetalle,
-            Prenda prenda,
+            IPrenda prenda,
             BigDecimal valorAcordado) {
 
         this.idDetalle = idDetalle;
@@ -24,7 +25,7 @@ public class DetalleAlquiler implements IDetalleAlquiler {
     }
 
     public DetalleAlquiler(
-            Prenda prenda,
+            IPrenda prenda,
             BigDecimal valorAcordado) {
 
         this(0, prenda, valorAcordado);
@@ -36,7 +37,7 @@ public class DetalleAlquiler implements IDetalleAlquiler {
     }
 
     @Override
-    public Prenda getPrenda() {
+    public IPrenda getPrenda() {
         return prenda;
     }
 

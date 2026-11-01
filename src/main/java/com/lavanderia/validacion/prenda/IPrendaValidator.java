@@ -1,18 +1,21 @@
+
 package com.lavanderia.validacion.prenda;
+
+import com.lavanderia.validacion.ResultadoValidacion;
 
 import java.util.Map;
 
 public interface IPrendaValidator {
 
-    Map<String, String> validarVestido(
+    ResultadoValidacion<Map<String, String>> validarVestido(
             Map<String, String> datos
     );
 
-    Map<String, String> validarTraje(
+    ResultadoValidacion<Map<String, String>> validarTraje(
             Map<String, String> datos
     );
 
-    Map<String, String> validarDisfraz(
+    ResultadoValidacion<Map<String, String>> validarDisfraz(
             Map<String, String> datos
     );
 }

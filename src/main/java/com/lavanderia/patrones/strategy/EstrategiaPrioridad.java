@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-public class EstrategiaPrioridad implements EstrategiaLavanderia {
+public class EstrategiaPrioridad implements IEstrategiaPrioridadLavanderia {
 
     @Override
     public List<ISolicitudLavanderia> seleccionarPrendas(

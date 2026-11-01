@@ -1,3 +1,4 @@
+
 package com.lavanderia.servicio;
 
 import com.lavanderia.dao.interfaces.ILavanderiaDAO;
@@ -9,23 +10,23 @@ import com.lavanderia.modelo.interfaces.ILoteLavanderia;
 import com.lavanderia.modelo.interfaces.ISolicitudLavanderia;
 import com.lavanderia.modelo.lavanderia.LoteLavanderia;
 import com.lavanderia.modelo.lavanderia.SolicitudLavanderia;
-import com.lavanderia.patrones.strategy.EstrategiaLavanderia;
+import com.lavanderia.patrones.strategy.IEstrategiaPrioridadLavanderia;
 import com.lavanderia.patrones.strategy.EstrategiaPrioridad;
+import com.lavanderia.servicio.interfaces.IGestorLavanderia;
 import com.lavanderia.validacion.ValidacionException;
 import com.lavanderia.validacion.lavanderia.ISolicitudLavanderiaValidator;
 
 import java.time.LocalDate;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
-public class GestorLavanderia {
+public class GestorLavanderia implements IGestorLavanderia {
 
     private final ILavanderiaDAO repositorio;
     private final ISolicitudLavanderiaValidator validador;
-    private EstrategiaLavanderia estrategia;
+    private IEstrategiaPrioridadLavanderia estrategia;
 
     public GestorLavanderia(
             ILavanderiaDAO repositorio,
@@ -41,7 +42,7 @@ public class GestorLavanderia {
     public GestorLavanderia(
             ILavanderiaDAO repositorio,
             ISolicitudLavanderiaValidator validador,
-            EstrategiaLavanderia estrategia) {
+            IEstrategiaPrioridadLavanderia estrategia) {
 
         if (repositorio == null || validador == null || estrategia == null) {
             throw new IllegalArgumentException(
@@ -58,58 +59,23 @@ public class GestorLavanderia {
     // REGISTRO DE SOLICITUDES
     // --------------------------------------------------
 
-    public void registrarDevolucion(
-            IDevolucion devolucion,
-            String prioridad) {
-
-        Map<String, String> datos = new HashMap<>();
-        datos.put("prioridad", prioridad);
-
-        Map<String, String> datosValidados =
-                validador.validar(datos);
-
-        String prioridadValidada =
-                datosValidados.get("prioridad");
-
-        if (prioridadValidada == null) {
-            throw new ValidacionException(
-                    "No se pudo validar la prioridad."
-            );
-        }
-
-        Prioridad prioridadEnum;
-
-        try {
-            prioridadEnum = Prioridad.valueOf(
-                    prioridadValidada.trim().toUpperCase()
-            );
-        } catch (IllegalArgumentException e) {
-            throw new ValidacionException(
-                    "La prioridad indicada no es válida."
-            );
-        }
-
-        registrarDevolucion(
-                devolucion,
-                prioridadEnum,
-                LocalDate.now()
-        );
-    }
-
-    public void registrarDevolucion(
+    @Override
+    public void registrarSolicitud(
             IDevolucion devolucion,
             Prioridad prioridad,
             LocalDate fechaRecepcion) {
 
-        if (devolucion == null) {
-            throw new ValidacionException(
-                    "La devolución es obligatoria."
-            );
-        }
+        validarDatosSolicitud(devolucion, prioridad, fechaRecepcion);
 
-        if (prioridad == null) {
+        boolean existe = repositorio
+                .buscarSolicitudPorDevolucion(
+                        devolucion.getIdDevolucion()
+                )
+                .isPresent();
+
+        if (existe) {
             throw new ValidacionException(
-                    "La prioridad es obligatoria."
+                    "Esta devolución ya tiene una solicitud de lavandería."
             );
         }
 
@@ -123,9 +89,129 @@ public class GestorLavanderia {
     }
 
     // --------------------------------------------------
+    // REGISTRO O ACTUALIZACIÓN DE SOLICITUDES
+    // --------------------------------------------------
+
+    @Override
+    public void registrarOActualizarSolicitud(
+            IDevolucion devolucion,
+            Prioridad prioridad,
+            LocalDate fechaRecepcion) {
+
+        validarDatosSolicitud(devolucion, prioridad, fechaRecepcion);
+
+        Optional<SolicitudLavanderia> resultado =
+                repositorio.buscarSolicitudPorDevolucion(
+                        devolucion.getIdDevolucion()
+                );
+
+        // No existe: crear solicitud.
+        if (resultado.isEmpty()) {
+            registrarSolicitud(devolucion, prioridad, fechaRecepcion);
+            return;
+        }
+
+        SolicitudLavanderia solicitud = resultado.get();
+
+        switch (solicitud.getEstado()) {
+
+            case PENDIENTE:
+
+                solicitud.setPrioridad(prioridad);
+                solicitud.setFechaRecepcion(fechaRecepcion);
+
+                repositorio.actualizarSolicitud(solicitud);
+                break;
+
+            case CANCELADA:
+
+                solicitud.setPrioridad(prioridad);
+                solicitud.setFechaRecepcion(fechaRecepcion);
+                solicitud.setEstado(EstadoSolicitud.PENDIENTE);
+
+                repositorio.actualizarSolicitud(solicitud);
+                break;
+
+            case EN_LAVADO:
+            case LISTA:
+
+                throw new ValidacionException(
+                        "La solicitud ya fue procesada y no puede modificarse."
+                );
+        }
+    }
+
+    // --------------------------------------------------
+    // CANCELACIÓN DE SOLICITUDES
+    // --------------------------------------------------
+
+    @Override
+    public void cancelarSolicitudPorDevolucion(long idDevolucion) {
+
+        if (idDevolucion <= 0) {
+            throw new ValidacionException(
+                    "El identificador de la devolución no es válido."
+            );
+        }
+
+        SolicitudLavanderia solicitud = repositorio
+                .buscarSolicitudPorDevolucion(idDevolucion)
+                .orElse(null);
+
+        // No existe o ya está cancelada.
+        if (solicitud == null
+                || solicitud.getEstado() == EstadoSolicitud.CANCELADA) {
+            return;
+        }
+
+        if (solicitud.getEstado() != EstadoSolicitud.PENDIENTE) {
+            throw new ValidacionException(
+                    "No se puede cancelar una solicitud que ya fue enviada "
+                            + "o finalizada."
+            );
+        }
+
+        repositorio.actualizarEstado(
+                solicitud.getIdSolicitud(),
+                EstadoSolicitud.CANCELADA
+        );
+
+        solicitud.setEstado(EstadoSolicitud.CANCELADA);
+    }
+
+    // --------------------------------------------------
+    // VALIDACIÓN DE SOLICITUDES
+    // --------------------------------------------------
+
+    private void validarDatosSolicitud(
+            IDevolucion devolucion,
+            Prioridad prioridad,
+            LocalDate fechaRecepcion) {
+
+        if (devolucion == null || devolucion.getIdDevolucion() <= 0) {
+            throw new ValidacionException(
+                    "Debe proporcionar una devolución registrada."
+            );
+        }
+
+        if (prioridad == null) {
+            throw new ValidacionException(
+                    "La prioridad es obligatoria."
+            );
+        }
+
+        if (fechaRecepcion == null) {
+            throw new ValidacionException(
+                    "La fecha de recepción es obligatoria."
+            );
+        }
+    }
+
+    // --------------------------------------------------
     // SELECCIÓN DE TANDA
     // --------------------------------------------------
 
+    @Override
     public List<ISolicitudLavanderia> seleccionarTanda(
             String cupoDiario) {
 
@@ -134,6 +220,7 @@ public class GestorLavanderia {
         return seleccionarTanda(cupo);
     }
 
+    @Override
     public List<ISolicitudLavanderia> seleccionarTanda(
             int cupoDiario) {
 
@@ -156,6 +243,7 @@ public class GestorLavanderia {
     // CONFIRMACIÓN DEL ENVÍO
     // --------------------------------------------------
 
+    @Override
     public ILoteLavanderia confirmarEnvio(
             List<ISolicitudLavanderia> tanda) {
 
@@ -167,17 +255,24 @@ public class GestorLavanderia {
                 EstadoLote.ENVIADO
         );
 
+        /*
+         * Esta operación debe ejecutarse en una transacción:
+         * 1. Guardar el lote.
+         * 2. Asignar el lote a las solicitudes.
+         * 3. Cambiar sus estados a EN_LAVADO.
+         */
         ILoteLavanderia lotePersistido =
                 repositorio.confirmarEnvio(tanda, lote);
 
-        if (lotePersistido == null ||
-                lotePersistido.getIdLote() <= 0) {
+        if (lotePersistido == null
+                || lotePersistido.getIdLote() <= 0) {
 
             throw new IllegalStateException(
                     "No se pudo confirmar el lote de lavandería."
             );
         }
 
+        // Actualizar los objetos en memoria después de persistir.
         for (ISolicitudLavanderia solicitud : tanda) {
             solicitud.asignarLote(lotePersistido);
             solicitud.setEstado(EstadoSolicitud.EN_LAVADO);
@@ -186,8 +281,7 @@ public class GestorLavanderia {
         return lotePersistido;
     }
 
-    private void validarTanda(
-            List<ISolicitudLavanderia> tanda) {
+    private void validarTanda(List<ISolicitudLavanderia> tanda) {
 
         if (tanda == null || tanda.isEmpty()) {
             throw new ValidacionException(
@@ -235,7 +329,9 @@ public class GestorLavanderia {
     // CAMBIO DE ESTRATEGIA
     // --------------------------------------------------
 
-    public void cambiarEstrategia(EstrategiaLavanderia estrategia) {
+    @Override
+    public void cambiarEstrategia(
+            IEstrategiaPrioridadLavanderia estrategia) {
 
         if (estrategia == null) {
             throw new ValidacionException(
@@ -246,6 +342,11 @@ public class GestorLavanderia {
         this.estrategia = estrategia;
     }
 
+    // --------------------------------------------------
+    // FINALIZACIÓN DE SOLICITUDES
+    // --------------------------------------------------
+
+    @Override
     public void marcarSolicitudLista(
             ISolicitudLavanderia solicitud) {
 

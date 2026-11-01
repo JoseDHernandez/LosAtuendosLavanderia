@@ -1,47 +1,90 @@
+
 package com.lavanderia.validacion.lavanderia;
 
 import com.lavanderia.modelo.enums.Prioridad;
+import com.lavanderia.validacion.ResultadoValidacion;
 import com.lavanderia.validacion.ValidacionException;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public class SolicitudLavanderiaValidator
         implements ISolicitudLavanderiaValidator {
 
+    // ==========================================
+    // VALIDACIÓN DE SOLICITUD
+    // ==========================================
+
     @Override
-    public Map<String, String> validar(Map<String, String> datos) {
+    public ResultadoValidacion<Map<String, String>> validar(
+            Map<String, String> datos) {
+
+        Map<String, String> limpio = new LinkedHashMap<>();
+        Map<String, String> errores = new LinkedHashMap<>();
 
         if (datos == null || datos.isEmpty()) {
-            throw new ValidacionException(
+
+            errores.put(
+                    "general",
                     "No se recibieron datos para validar."
             );
+
+            return ResultadoValidacion.fallido(errores);
         }
 
-        Map<String, String> resultado = new HashMap<>(datos);
+        validarCampoPrioridad(datos, limpio, errores);
 
-        String prioridad = resultado.get("prioridad");
+        if (!errores.isEmpty()) {
+            return ResultadoValidacion.fallido(errores);
+        }
+
+        return ResultadoValidacion.exitoso(
+                Map.copyOf(limpio)
+        );
+    }
+
+    // ==========================================
+    // VALIDACIÓN DE PRIORIDAD
+    // ==========================================
+
+    private void validarCampoPrioridad(
+            Map<String, String> datos,
+            Map<String, String> limpio,
+            Map<String, String> errores) {
+
+        String prioridad = datos.get("prioridad");
 
         if (prioridad == null || prioridad.isBlank()) {
-            throw new ValidacionException(
+
+            errores.put(
+                    "prioridad",
                     "La prioridad es obligatoria."
             );
+
+            return;
         }
 
-        prioridad = prioridad.trim().toUpperCase();
+        prioridad = prioridad.trim().toUpperCase(Locale.ROOT);
 
         try {
+
             Prioridad.valueOf(prioridad);
-        } catch (IllegalArgumentException e) {
-            throw new ValidacionException(
+
+            limpio.put("prioridad", prioridad);
+
+        } catch (IllegalArgumentException ex) {
+
+            errores.put(
+                    "prioridad",
                     "La prioridad indicada no es válida."
             );
         }
-
-        resultado.put("prioridad", prioridad);
-
-        return resultado;
     }
+
+    // ==========================================
+    // VALIDACIÓN DE CUPO
+    // ==========================================
 
     @Override
     public int validarCupo(String cupo) {
@@ -53,8 +96,13 @@ public class SolicitudLavanderiaValidator
         }
 
         try {
-            return validarCupo(Integer.parseInt(cupo.trim()));
-        } catch (NumberFormatException e) {
+
+            return validarCupo(
+                    Integer.parseInt(cupo.trim())
+            );
+
+        } catch (NumberFormatException ex) {
+
             throw new ValidacionException(
                     "El cupo debe ser un número entero."
             );

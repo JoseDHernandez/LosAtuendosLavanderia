@@ -9,14 +9,14 @@ import com.lavanderia.modelo.interfaces.ISolicitudLavanderia;
 import com.lavanderia.validacion.ValidacionException;
 
 import java.time.LocalDate;
-import java.util.Objects;
 
 public class SolicitudLavanderia implements ISolicitudLavanderia {
 
     private final long idSolicitud;
     private final IDevolucion devolucion;
-    private final LocalDate fechaRecepcion;
-    private final Prioridad prioridad;
+
+    private LocalDate fechaRecepcion;
+    private Prioridad prioridad;
 
     private ILoteLavanderia lote;
     private EstadoSolicitud estado;
@@ -45,6 +45,12 @@ public class SolicitudLavanderia implements ISolicitudLavanderia {
             Prioridad prioridad,
             LocalDate fechaRecepcion,
             EstadoSolicitud estado) {
+
+        if (idSolicitud < 0) {
+            throw new ValidacionException(
+                    "El identificador de la solicitud no puede ser negativo."
+            );
+        }
 
         if (devolucion == null) {
             throw new ValidacionException(
@@ -105,6 +111,42 @@ public class SolicitudLavanderia implements ISolicitudLavanderia {
     }
 
     @Override
+    public void setFechaRecepcion(LocalDate fechaRecepcion) {
+
+        if (fechaRecepcion == null) {
+            throw new ValidacionException(
+                    "La fecha de recepción es obligatoria."
+            );
+        }
+
+        if (estado != EstadoSolicitud.PENDIENTE) {
+            throw new ValidacionException(
+                    "Solo se puede modificar la fecha de una solicitud pendiente."
+            );
+        }
+
+        this.fechaRecepcion = fechaRecepcion;
+    }
+
+    @Override
+    public void setPrioridad(Prioridad prioridad) {
+
+        if (prioridad == null) {
+            throw new ValidacionException(
+                    "La prioridad es obligatoria."
+            );
+        }
+
+        if (estado != EstadoSolicitud.PENDIENTE) {
+            throw new ValidacionException(
+                    "Solo se puede modificar la prioridad de una solicitud pendiente."
+            );
+        }
+
+        this.prioridad = prioridad;
+    }
+
+    @Override
     public void setEstado(EstadoSolicitud estado) {
 
         if (estado == null) {
@@ -128,6 +170,12 @@ public class SolicitudLavanderia implements ISolicitudLavanderia {
         if (this.lote != null) {
             throw new ValidacionException(
                     "La solicitud ya tiene un lote asignado."
+            );
+        }
+
+        if (estado != EstadoSolicitud.PENDIENTE) {
+            throw new ValidacionException(
+                    "Solo se pueden asignar al lote solicitudes pendientes."
             );
         }
 

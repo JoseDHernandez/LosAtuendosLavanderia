@@ -5,13 +5,19 @@ import com.lavanderia.modelo.interfaces.ICliente;
 import java.util.List;
 import java.util.Optional;
 
-public interface IClienteDAO extends IPersonaDAO {
+
+public interface IClienteDAO {
 
     void guardar(ICliente cliente);
 
-    Optional<ICliente> buscarClientePorIdentificacion(
+    List<ICliente> listarTodos();
+
+    Optional<ICliente> buscarPorIdentificacion(
             String identificacion
     );
 
-    List<ICliente> listarClientes();
+    void actualizar(
+            String identificacionActual,
+            ICliente cliente
+    );
 }

@@ -1,7 +1,5 @@
 package com.lavanderia.modelo.enums;
 
-import com.lavanderia.validacion.ValidacionException;
-
 public enum Prioridad {
 
     NORMAL(1),

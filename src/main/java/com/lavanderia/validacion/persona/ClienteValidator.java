@@ -1,17 +1,15 @@
 package com.lavanderia.validacion.persona;
 
+import com.lavanderia.validacion.ResultadoValidacion;
+
 import java.util.Map;
 
-public class ClienteValidator implements IPersonaValidator {
-
-    private final IPersonaValidator personaValidator;
-
-    public ClienteValidator(IPersonaValidator personaValidator) {
-        this.personaValidator = personaValidator;
-    }
+public class ClienteValidator extends PersonaValidator {
 
     @Override
-    public Map<String, String> validar(Map<String, String> datos) {
-        return personaValidator.validar(datos);
+    public ResultadoValidacion<Map<String, String>> validar(
+            Map<String, String> datos) {
+
+        return super.validar(datos);
     }
 }

@@ -7,7 +7,7 @@ import java.util.Optional;
 
 public interface IDevolucionDAO {
 
-    void guardar(Devolucion devolucion);
+    Devolucion guardar(Devolucion devolucion);
 
     boolean existePorIdDetalle(long idDetalle);
 

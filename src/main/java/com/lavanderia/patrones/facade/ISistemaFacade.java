@@ -1,9 +1,6 @@
 package com.lavanderia.patrones.facade;
 
-import com.lavanderia.servicio.interfaces.IGestorPersonas;
-import com.lavanderia.servicio.interfaces.IGestorPrendas;
-import com.lavanderia.servicio.interfaces.IGestorAlquiler;
-import com.lavanderia.servicio.interfaces.IGestorLavanderia;
+import com.lavanderia.servicio.interfaces.*;
 
 public interface ISistemaFacade {
 
@@ -14,4 +11,6 @@ public interface ISistemaFacade {
     IGestorAlquiler getGestorAlquiler();
 
     IGestorLavanderia getGestorLavanderia();
+
+    IGestorDevoluciones getGestorDevoluciones();
 }

@@ -17,14 +17,13 @@ public interface IGestorAlquiler {
 
     List<IAlquiler> consultarPorFecha(LocalDate fecha);
 
+    List<IAlquiler> listarTodos();
+
     boolean verificarDisponibilidad(
             List<Long> idsPrendas,
             LocalDate fechaInicio,
             LocalDate fechaFin
     );
 
-    void cambiarEstado(
-            long idAlquiler,
-            EstadoAlquiler estado
-    );
+    void cambiarEstado(long idAlquiler, EstadoAlquiler estado);
 }

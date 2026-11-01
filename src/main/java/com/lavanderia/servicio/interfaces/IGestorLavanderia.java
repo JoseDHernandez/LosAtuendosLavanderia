@@ -4,51 +4,42 @@ import com.lavanderia.modelo.enums.Prioridad;
 import com.lavanderia.modelo.interfaces.IDevolucion;
 import com.lavanderia.modelo.interfaces.ILoteLavanderia;
 import com.lavanderia.modelo.interfaces.ISolicitudLavanderia;
-import com.lavanderia.patrones.strategy.EstrategiaLavanderia;
+import com.lavanderia.patrones.strategy.IEstrategiaPrioridadLavanderia;
 
 import java.time.LocalDate;
 import java.util.List;
 
 public interface IGestorLavanderia {
 
-    // REGISTRO DE SOLICITUDES
-
-    void registrarDevolucion(
-            IDevolucion devolucion,
-            String prioridad
-    );
-
-    void registrarDevolucion(
+    // Gestión de solicitudes
+    void registrarSolicitud(
             IDevolucion devolucion,
             Prioridad prioridad,
             LocalDate fechaRecepcion
     );
 
-    // SELECCIÓN DE TANDA
-
-    List<ISolicitudLavanderia> seleccionarTanda(
-            String cupoDiario
+    void registrarOActualizarSolicitud(
+            IDevolucion devolucion,
+            Prioridad prioridad,
+            LocalDate fechaRecepcion
     );
 
-    List<ISolicitudLavanderia> seleccionarTanda(
-            int cupoDiario
-    );
+    void cancelarSolicitudPorDevolucion(long idDevolucion);
 
-    // CONFIRMACIÓN DEL ENVÍO
+    // Gestión de tandas
+    List<ISolicitudLavanderia> seleccionarTanda(String cupoDiario);
+
+    List<ISolicitudLavanderia> seleccionarTanda(int cupoDiario);
 
     ILoteLavanderia confirmarEnvio(
             List<ISolicitudLavanderia> tanda
     );
 
-    // GESTIÓN DE ESTRATEGIAS
-
+    // Estrategia de prioridad
     void cambiarEstrategia(
-            EstrategiaLavanderia estrategia
+            IEstrategiaPrioridadLavanderia estrategia
     );
 
-    // ACTUALIZACIÓN DE SOLICITUDES
-
-    void marcarSolicitudLista(
-            ISolicitudLavanderia solicitud
-    );
+    // Finalización de solicitudes
+    void marcarSolicitudLista(ISolicitudLavanderia solicitud);
 }

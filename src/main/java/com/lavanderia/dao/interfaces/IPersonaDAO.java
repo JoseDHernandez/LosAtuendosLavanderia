@@ -10,8 +10,11 @@ import java.util.Optional;
 public interface IPersonaDAO {
 
     boolean existeIdentificacion(String identificacion);
-
-    List<IPersona> listarPersonas();
+    // Excluye a la persona que se está actualizando.
+    boolean existeIdentificacion(
+            String identificacion,
+            String identificacionExcluida
+    );
 
     Optional<IPersona> buscarPorIdentificacion(String identificacion);
 }

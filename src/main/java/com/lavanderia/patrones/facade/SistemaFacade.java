@@ -1,9 +1,6 @@
 package com.lavanderia.patrones.facade;
 
-import com.lavanderia.servicio.interfaces.IGestorPersonas;
-import com.lavanderia.servicio.interfaces.IGestorPrendas;
-import com.lavanderia.servicio.interfaces.IGestorAlquiler;
-import com.lavanderia.servicio.interfaces.IGestorLavanderia;
+import com.lavanderia.servicio.interfaces.*;
 
 import java.util.Objects;
 
@@ -13,17 +10,19 @@ public class SistemaFacade implements ISistemaFacade {
     private final IGestorPrendas gestorPrendas;
     private final IGestorAlquiler gestorAlquiler;
     private final IGestorLavanderia gestorLavanderia;
-
+    private  final IGestorDevoluciones gestorDevoluciones;
     public SistemaFacade(
             IGestorPersonas gestorPersonas,
             IGestorPrendas gestorPrendas,
             IGestorAlquiler gestorAlquiler,
-            IGestorLavanderia gestorLavanderia) {
+            IGestorLavanderia gestorLavanderia,
+            IGestorDevoluciones gestorDevoluciones) {
 
         this.gestorPersonas = Objects.requireNonNull(gestorPersonas);
         this.gestorPrendas = Objects.requireNonNull(gestorPrendas);
         this.gestorAlquiler = Objects.requireNonNull(gestorAlquiler);
         this.gestorLavanderia = Objects.requireNonNull(gestorLavanderia);
+        this.gestorDevoluciones = Objects.requireNonNull(gestorDevoluciones);
     }
 
     @Override
@@ -45,4 +44,7 @@ public class SistemaFacade implements ISistemaFacade {
     public IGestorLavanderia getGestorLavanderia() {
         return gestorLavanderia;
     }
+
+    @Override
+    public IGestorDevoluciones getGestorDevoluciones(){return gestorDevoluciones;}
 }

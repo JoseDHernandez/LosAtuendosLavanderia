@@ -16,4 +16,6 @@ public interface IPrendaDAO {
     List<IPrenda> listarPrendas();
 
     List<IPrenda> buscarPorTalla(String talla);
+
+    void actualizar(String referenciaActual, IPrenda prenda);
 }

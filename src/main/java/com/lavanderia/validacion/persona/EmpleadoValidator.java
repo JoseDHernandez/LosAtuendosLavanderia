@@ -1,28 +1,45 @@
 package com.lavanderia.validacion.persona;
 
-import com.lavanderia.validacion.comun.ValidadorComun;
+import com.lavanderia.validacion.ResultadoValidacion;
+import com.lavanderia.validacion.ValidacionException;
+
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.HashMap;
 
-public class EmpleadoValidator implements IPersonaValidator {
-
-    private final IPersonaValidator personaValidator;
-
-    public EmpleadoValidator(IPersonaValidator personaValidator) {
-        this.personaValidator = personaValidator;
-    }
+public class EmpleadoValidator extends PersonaValidator {
 
     @Override
-    public Map<String, String> validar(Map<String, String> datos) {
+    public ResultadoValidacion<Map<String, String>> validar(
+            Map<String, String> datos) {
 
-        Map<String, String> limpio =
-                new HashMap<>(personaValidator.validar(datos));
+        ResultadoValidacion<Map<String, String>> resultadoPersona =
+                super.validar(datos);
 
-        limpio.put(
-                "cargo",
-                ValidadorComun.nombre(datos.get("cargo"), "cargo")
+        Map<String, String> errores = new LinkedHashMap<>(
+                resultadoPersona.getErrores()
         );
 
-        return limpio;
+        if (datos == null) {
+            return ResultadoValidacion.fallido(errores);
+        }
+
+        Map<String, String> limpio = new LinkedHashMap<>(
+                resultadoPersona.getValor().orElse(Map.of())
+        );
+
+        try {
+            limpio.put(
+                    "cargo",
+                    validarNombre(datos.get("cargo"))
+            );
+        } catch (ValidacionException ex) {
+            errores.put("cargo", ex.getMessage());
+        }
+
+        if (!errores.isEmpty()) {
+            return ResultadoValidacion.fallido(errores);
+        }
+
+        return ResultadoValidacion.exitoso(Map.copyOf(limpio));
     }
 }

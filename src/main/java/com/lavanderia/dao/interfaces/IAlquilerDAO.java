@@ -84,4 +84,5 @@ public interface IAlquilerDAO {
             long idAlquiler,
             EstadoAlquiler nuevoEstado
     );
+    List<IAlquiler> listarTodos();
 }

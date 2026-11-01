@@ -1,6 +1,6 @@
 package com.lavanderia.vista.interfaces;
 
-import javax.swing.JComponent;
+import javax.swing.*;
 
 public interface IModuloVista {
 
@@ -8,7 +8,7 @@ public interface IModuloVista {
 
     String getTitulo();
 
-    String getIcono();
+    Icon getIcono();
 
     JComponent getVista();
 }

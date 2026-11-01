@@ -1,8 +1,12 @@
 package com.lavanderia.validacion.persona;
 
+import com.lavanderia.validacion.ResultadoValidacion;
+
 import java.util.Map;
 
 public interface IPersonaValidator {
 
-    Map<String, String> validar(Map<String, String> datos);
+    ResultadoValidacion<Map<String, String>> validar(
+            Map<String, String> datos
+    );
 }
