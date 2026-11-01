@@ -67,6 +67,17 @@ public interface IGestorLavanderia {
     List<ISolicitudLavanderia> seleccionarTanda(int cupoDiario);
 
     /**
+     * Consulta todas las solicitudes de lavandería,
+     * independientemente de su estado.
+     */
+    List<ISolicitudLavanderia> listarSolicitudes();
+
+    /**
+     * Consulta los lotes de lavandería registrados.
+     */
+    List<ILoteLavanderia> listarLotes();
+
+    /**
      * Confirma y formaliza el envío de una tanda de solicitudes conformando un nuevo lote de lavandería.
      *
      * @param tanda Lista de solicitudes seleccionadas a despachar.

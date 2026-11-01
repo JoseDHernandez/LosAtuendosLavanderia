@@ -69,4 +69,14 @@ public interface ILavanderiaDAO {
      * @param solicitud Objeto {@link SolicitudLavanderia} con datos actualizados.
      */
     void actualizarSolicitud(SolicitudLavanderia solicitud);
+
+    /**
+     * Consulta todas las solicitudes registradas.
+     */
+    List<ISolicitudLavanderia> listarSolicitudes();
+
+    /**
+     * Consulta todos los lotes de lavandería registrados.
+     */
+    List<ILoteLavanderia> listarLotes();
 }

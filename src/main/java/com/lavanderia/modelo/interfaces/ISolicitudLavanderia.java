@@ -4,6 +4,7 @@ import com.lavanderia.modelo.enums.EstadoSolicitud;
 import com.lavanderia.modelo.enums.Prioridad;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * Contrato para solicitudes individuales de lavado generadas a partir de una devolución con novedad.

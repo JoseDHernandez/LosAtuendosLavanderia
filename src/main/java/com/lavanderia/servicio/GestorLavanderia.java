@@ -65,6 +65,29 @@ public class GestorLavanderia implements IGestorLavanderia {
         this.estrategia = estrategia;
     }
 
+    // ==================================================
+    // CONSULTAS
+    // ==================================================
+
+    /**
+     * Consulta todas las solicitudes de lavandería,
+     * independientemente de su estado.
+     */
+    @Override
+    public List<ISolicitudLavanderia> listarSolicitudes() {
+
+        return repositorio.listarSolicitudes();
+    }
+
+    /**
+     * Consulta todos los lotes registrados.
+     */
+    @Override
+    public List<ILoteLavanderia> listarLotes() {
+
+        return repositorio.listarLotes();
+    }
+
     // --------------------------------------------------
     // REGISTRO DE SOLICITUDES
     // --------------------------------------------------

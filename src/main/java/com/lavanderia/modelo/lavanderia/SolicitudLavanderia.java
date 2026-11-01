@@ -8,6 +8,7 @@ import com.lavanderia.modelo.interfaces.ISolicitudLavanderia;
 import com.lavanderia.validacion.ValidacionException;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * Entidad que modela una Solicitud individual de Lavandería para una prenda retornada con novedades.

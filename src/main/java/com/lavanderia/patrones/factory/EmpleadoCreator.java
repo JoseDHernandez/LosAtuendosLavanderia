@@ -34,11 +34,7 @@ public class EmpleadoCreator extends PersonaCreator {
     @Override
     public IEmpleado crearPersona(Map<String, String> datos) {
 
-        // ERROR DE COMPILACIÓN DETECTADO:
-        // 'validator.validar(datos)' retorna 'ResultadoValidacion<Map<String, String>>',
-        // no un 'Map<String, String>' directamente.
-        // Solución requerida: validator.validar(datos).obtenerValor();
-        Map<String, String> d = validator.validar(datos);
+        Map<String, String> d = validator.validar(datos).obtenerValor();
 
         // Construir la instancia de Empleado con los datos extraídos
         return new Empleado(
