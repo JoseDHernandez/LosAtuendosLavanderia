@@ -8,7 +8,7 @@ public interface IDetalleAlquiler {
 
     long getIdDetalle();
 
-    Prenda getPrenda();
+    IPrenda getPrenda();
 
     BigDecimal getValorAcordado();
 }

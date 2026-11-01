@@ -23,6 +23,13 @@ public class DetalleAlquiler implements IDetalleAlquiler {
         this.valorAcordado = Objects.requireNonNull(valorAcordado);
     }
 
+    public DetalleAlquiler(
+            Prenda prenda,
+            BigDecimal valorAcordado) {
+
+        this(0, prenda, valorAcordado);
+    }
+
     @Override
     public long getIdDetalle() {
         return idDetalle;
