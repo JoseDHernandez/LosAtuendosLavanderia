@@ -2,10 +2,8 @@ package com.lavanderia.validacion.lavanderia;
 
 import com.lavanderia.modelo.enums.Prioridad;
 import com.lavanderia.validacion.ValidacionException;
-import com.lavanderia.validacion.comun.ValidadorComun;
 
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 
 public class SolicitudLavanderiaValidator
@@ -14,61 +12,53 @@ public class SolicitudLavanderiaValidator
     @Override
     public Map<String, String> validar(Map<String, String> datos) {
 
-        if (datos == null) {
-            throw new IllegalArgumentException(
-                    "No se recibieron datos."
+        if (datos == null || datos.isEmpty()) {
+            throw new ValidacionException(
+                    "No se recibieron datos para validar."
             );
         }
 
-        Map<String, String> limpio = new HashMap<>();
+        Map<String, String> resultado = new HashMap<>(datos);
 
-        limpio.put(
-                "referenciaPrenda",
-                ValidadorComun.referencia(datos.get("referenciaPrenda"))
-        );
+        String prioridad = resultado.get("prioridad");
 
-        limpio.put(
-                "prioridad",
-                validarPrioridad(datos.get("prioridad")).name()
-        );
+        if (prioridad == null || prioridad.isBlank()) {
+            throw new ValidacionException(
+                    "La prioridad es obligatoria."
+            );
+        }
 
-        return limpio;
-    }
-
-    private Prioridad validarPrioridad(String prioridad) {
-
-        String limpio = ValidadorComun.obligatorio(
-                prioridad,
-                "prioridad"
-        );
+        prioridad = prioridad.trim().toUpperCase();
 
         try {
-            return Prioridad.valueOf(
-                    limpio.toUpperCase(Locale.ROOT)
-            );
+            Prioridad.valueOf(prioridad);
         } catch (IllegalArgumentException e) {
             throw new ValidacionException(
-                    "La prioridad seleccionada no es válida."
+                    "La prioridad indicada no es válida."
             );
         }
+
+        resultado.put("prioridad", prioridad);
+
+        return resultado;
     }
 
     @Override
     public int validarCupo(String cupo) {
 
-        int valor;
+        if (cupo == null || cupo.isBlank()) {
+            throw new ValidacionException(
+                    "El cupo es obligatorio."
+            );
+        }
 
         try {
-            valor = Integer.parseInt(
-                    ValidadorComun.obligatorio(cupo, "cupo")
-            );
+            return validarCupo(Integer.parseInt(cupo.trim()));
         } catch (NumberFormatException e) {
             throw new ValidacionException(
                     "El cupo debe ser un número entero."
             );
         }
-
-        return validarCupo(valor);
     }
 
     @Override

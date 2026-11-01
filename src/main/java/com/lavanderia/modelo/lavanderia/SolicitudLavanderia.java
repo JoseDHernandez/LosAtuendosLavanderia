@@ -1,24 +1,56 @@
+
 package com.lavanderia.modelo.lavanderia;
 
 import com.lavanderia.modelo.enums.EstadoSolicitud;
 import com.lavanderia.modelo.enums.Prioridad;
+import com.lavanderia.modelo.interfaces.IDevolucion;
+import com.lavanderia.modelo.interfaces.ILoteLavanderia;
 import com.lavanderia.modelo.interfaces.ISolicitudLavanderia;
 import com.lavanderia.validacion.ValidacionException;
 
 import java.time.LocalDate;
+import java.util.Objects;
 
 public class SolicitudLavanderia implements ISolicitudLavanderia {
 
-    private final String referenciaPrenda;
+    private final long idSolicitud;
+    private final IDevolucion devolucion;
     private final LocalDate fechaRecepcion;
     private final Prioridad prioridad;
 
-    private EstadoSolicitud estado = EstadoSolicitud.PENDIENTE;
+    private ILoteLavanderia lote;
+    private EstadoSolicitud estado;
 
+    // Constructor para registrar una nueva solicitud
     public SolicitudLavanderia(
-            String referenciaPrenda,
+            IDevolucion devolucion,
             Prioridad prioridad,
             LocalDate fechaRecepcion) {
+
+        this(
+                0,
+                devolucion,
+                null,
+                prioridad,
+                fechaRecepcion,
+                EstadoSolicitud.PENDIENTE
+        );
+    }
+
+    // Constructor para recuperar una solicitud existente
+    public SolicitudLavanderia(
+            long idSolicitud,
+            IDevolucion devolucion,
+            ILoteLavanderia lote,
+            Prioridad prioridad,
+            LocalDate fechaRecepcion,
+            EstadoSolicitud estado) {
+
+        if (devolucion == null) {
+            throw new ValidacionException(
+                    "La devolución asociada es obligatoria."
+            );
+        }
 
         if (prioridad == null) {
             throw new ValidacionException(
@@ -26,25 +58,35 @@ public class SolicitudLavanderia implements ISolicitudLavanderia {
             );
         }
 
-        this.referenciaPrenda = validarReferencia(referenciaPrenda);
+        if (estado == null) {
+            throw new ValidacionException(
+                    "El estado de la solicitud es obligatorio."
+            );
+        }
+
+        this.idSolicitud = idSolicitud;
+        this.devolucion = devolucion;
+        this.lote = lote;
         this.prioridad = prioridad;
         this.fechaRecepcion = fechaRecepcion == null
                 ? LocalDate.now()
                 : fechaRecepcion;
+        this.estado = estado;
     }
-    private String validarReferencia(String referencia) {
 
-        if (referencia == null || referencia.isBlank()) {
-            throw new ValidacionException(
-                    "La referencia de la prenda es obligatoria."
-            );
-        }
-
-        return referencia.trim();
-    }
     @Override
-    public String getReferenciaPrenda() {
-        return referenciaPrenda;
+    public long getIdSolicitud() {
+        return idSolicitud;
+    }
+
+    @Override
+    public IDevolucion getDevolucion() {
+        return devolucion;
+    }
+
+    @Override
+    public ILoteLavanderia getLote() {
+        return lote;
     }
 
     @Override
@@ -75,10 +117,31 @@ public class SolicitudLavanderia implements ISolicitudLavanderia {
     }
 
     @Override
+    public void asignarLote(ILoteLavanderia lote) {
+
+        if (lote == null) {
+            throw new ValidacionException(
+                    "El lote de lavandería es obligatorio."
+            );
+        }
+
+        if (this.lote != null) {
+            throw new ValidacionException(
+                    "La solicitud ya tiene un lote asignado."
+            );
+        }
+
+        this.lote = lote;
+    }
+
+    @Override
     public String toString() {
-        return "Solicitud(" + referenciaPrenda + ", "
-                + prioridad + ", "
-                + fechaRecepcion + ", "
-                + estado + ")";
+        return "SolicitudLavanderia{" +
+                "idSolicitud=" + idSolicitud +
+                ", devolucion=" + devolucion.getIdDevolucion() +
+                ", fechaRecepcion=" + fechaRecepcion +
+                ", prioridad=" + prioridad +
+                ", estado=" + estado +
+                '}';
     }
 }

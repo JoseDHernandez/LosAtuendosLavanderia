@@ -1,6 +1,11 @@
 package com.lavanderia;
 
-import javax.swing.SwingUtilities;
+import com.lavanderia.vista.MainFrame;
+import com.lavanderia.vista.interfaces.IModuloVista;
+import com.lavanderia.vista.paneles.PanelInicio;
+
+import javax.swing.*;
+import java.util.List;
 
 public class Main {
 
@@ -8,22 +13,26 @@ public class Main {
 
         SwingUtilities.invokeLater(() -> {
 
-            System.out.println(
-                    "================================"
+            try {
+                UIManager.setLookAndFeel(
+                        UIManager.getSystemLookAndFeelClassName()
+                );
+            } catch (Exception e) {
+                System.err.println(
+                        "No se pudo establecer el Look and Feel."
+                );
+            }
+
+            List<IModuloVista> modulos = List.of(
+                    new PanelInicio()
             );
 
-            System.out.println(
-                    "       LOS ATUENDOS"
+            MainFrame ventana = new MainFrame(
+                    modulos,
+                    "inicio"
             );
 
-            System.out.println(
-                    " Sistema de gestión de alquiler"
-            );
-
-            System.out.println(
-                    "================================"
-            );
-
+            ventana.setVisible(true);
         });
     }
 }

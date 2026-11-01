@@ -13,6 +13,10 @@ public class EstrategiaPrioridad implements EstrategiaLavanderia {
             List<ISolicitudLavanderia> pendientes,
             int cupo) {
 
+        if (pendientes == null || pendientes.isEmpty() || cupo <= 0) {
+            return new ArrayList<>();
+        }
+
         List<ISolicitudLavanderia> copia =
                 new ArrayList<>(pendientes);
 

@@ -1,52 +1,51 @@
 package com.lavanderia.servicio;
 
 import com.lavanderia.dao.interfaces.ILavanderiaDAO;
+import com.lavanderia.modelo.enums.EstadoLote;
 import com.lavanderia.modelo.enums.EstadoSolicitud;
 import com.lavanderia.modelo.enums.Prioridad;
+import com.lavanderia.modelo.interfaces.IDevolucion;
+import com.lavanderia.modelo.interfaces.ILoteLavanderia;
 import com.lavanderia.modelo.interfaces.ISolicitudLavanderia;
+import com.lavanderia.modelo.lavanderia.LoteLavanderia;
 import com.lavanderia.modelo.lavanderia.SolicitudLavanderia;
-import com.lavanderia.patrones.strategy.EstrategiaFIFO;
 import com.lavanderia.patrones.strategy.EstrategiaLavanderia;
+import com.lavanderia.patrones.strategy.EstrategiaPrioridad;
 import com.lavanderia.validacion.ValidacionException;
 import com.lavanderia.validacion.lavanderia.ISolicitudLavanderiaValidator;
 
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
-/**
- * Contexto del patrón Strategy.
- */
 public class GestorLavanderia {
 
     private final ILavanderiaDAO repositorio;
     private final ISolicitudLavanderiaValidator validador;
-
     private EstrategiaLavanderia estrategia;
 
-    /**
-     * Constructor con estrategia FIFO predeterminada.
-     */
     public GestorLavanderia(
             ILavanderiaDAO repositorio,
             ISolicitudLavanderiaValidator validador) {
 
-        this(repositorio, validador, new EstrategiaFIFO());
+        this(
+                repositorio,
+                validador,
+                new EstrategiaPrioridad()
+        );
     }
 
-    /**
-     * Constructor con estrategia personalizada.
-     */
     public GestorLavanderia(
             ILavanderiaDAO repositorio,
             ISolicitudLavanderiaValidator validador,
             EstrategiaLavanderia estrategia) {
 
-        if (repositorio == null || validador == null
-                || estrategia == null) {
+        if (repositorio == null || validador == null || estrategia == null) {
             throw new IllegalArgumentException(
-                    "Las dependencias de lavandería son obligatorias."
+                    "Los componentes del gestor no pueden ser nulos."
             );
         }
 
@@ -55,120 +54,218 @@ public class GestorLavanderia {
         this.estrategia = estrategia;
     }
 
-    /**
-     * Registra una devolución desde la interfaz gráfica.
-     */
-    public ISolicitudLavanderia registrarDevolucion(
-            String referenciaPrenda,
+    // --------------------------------------------------
+    // REGISTRO DE SOLICITUDES
+    // --------------------------------------------------
+
+    public void registrarDevolucion(
+            IDevolucion devolucion,
             String prioridad) {
 
         Map<String, String> datos = new HashMap<>();
-
-        datos.put("referenciaPrenda", referenciaPrenda);
         datos.put("prioridad", prioridad);
 
-        Map<String, String> limpio = validador.validar(datos);
+        Map<String, String> datosValidados =
+                validador.validar(datos);
 
-        return registrarDevolucion(
-                limpio.get("referenciaPrenda"),
-                Prioridad.valueOf(limpio.get("prioridad")),
+        String prioridadValidada =
+                datosValidados.get("prioridad");
+
+        if (prioridadValidada == null) {
+            throw new ValidacionException(
+                    "No se pudo validar la prioridad."
+            );
+        }
+
+        Prioridad prioridadEnum;
+
+        try {
+            prioridadEnum = Prioridad.valueOf(
+                    prioridadValidada.trim().toUpperCase()
+            );
+        } catch (IllegalArgumentException e) {
+            throw new ValidacionException(
+                    "La prioridad indicada no es válida."
+            );
+        }
+
+        registrarDevolucion(
+                devolucion,
+                prioridadEnum,
                 LocalDate.now()
         );
     }
 
-    /**
-     * Registra una devolución con fecha definida.
-     */
-    public ISolicitudLavanderia registrarDevolucion(
-            String referenciaPrenda,
+    public void registrarDevolucion(
+            IDevolucion devolucion,
             Prioridad prioridad,
-            LocalDate fecha) {
+            LocalDate fechaRecepcion) {
 
-        Map<String, String> datos = new HashMap<>();
+        if (devolucion == null) {
+            throw new ValidacionException(
+                    "La devolución es obligatoria."
+            );
+        }
 
-        datos.put("referenciaPrenda", referenciaPrenda);
-        datos.put("prioridad",
-                prioridad == null ? null : prioridad.name());
+        if (prioridad == null) {
+            throw new ValidacionException(
+                    "La prioridad es obligatoria."
+            );
+        }
 
-        Map<String, String> limpio = validador.validar(datos);
-
-        ISolicitudLavanderia solicitud =
-                new SolicitudLavanderia(
-                        limpio.get("referenciaPrenda"),
-                        Prioridad.valueOf(limpio.get("prioridad")),
-                        fecha
-                );
+        SolicitudLavanderia solicitud = new SolicitudLavanderia(
+                devolucion,
+                prioridad,
+                fechaRecepcion
+        );
 
         repositorio.guardarSolicitud(solicitud);
-
-        return solicitud;
     }
 
-    /**
-     * Selecciona una tanda desde el cupo ingresado en Swing.
-     */
+    // --------------------------------------------------
+    // SELECCIÓN DE TANDA
+    // --------------------------------------------------
+
     public List<ISolicitudLavanderia> seleccionarTanda(
             String cupoDiario) {
 
-        return seleccionarTanda(
-                validador.validarCupo(cupoDiario)
-        );
+        int cupo = validador.validarCupo(cupoDiario);
+
+        return seleccionarTanda(cupo);
     }
 
-    /**
-     * Selecciona las solicitudes según la estrategia activa.
-     */
     public List<ISolicitudLavanderia> seleccionarTanda(
             int cupoDiario) {
 
-        validador.validarCupo(cupoDiario);
+        int cupo = validador.validarCupo(cupoDiario);
+
+        List<ISolicitudLavanderia> pendientes =
+                repositorio.consultarPendientes();
+
+        if (pendientes == null || pendientes.isEmpty()) {
+            return List.of();
+        }
 
         return estrategia.seleccionarPrendas(
-                repositorio.consultarPendientes(),
-                cupoDiario
+                pendientes,
+                cupo
         );
     }
 
-    /**
-     * Confirma oficialmente el envío.
-     */
-    public void confirmarEnvio(
+    // --------------------------------------------------
+    // CONFIRMACIÓN DEL ENVÍO
+    // --------------------------------------------------
+
+    public ILoteLavanderia confirmarEnvio(
+            List<ISolicitudLavanderia> tanda) {
+
+        validarTanda(tanda);
+
+        ILoteLavanderia lote = new LoteLavanderia(
+                LocalDate.now(),
+                tanda.size(),
+                EstadoLote.ENVIADO
+        );
+
+        ILoteLavanderia lotePersistido =
+                repositorio.confirmarEnvio(tanda, lote);
+
+        if (lotePersistido == null ||
+                lotePersistido.getIdLote() <= 0) {
+
+            throw new IllegalStateException(
+                    "No se pudo confirmar el lote de lavandería."
+            );
+        }
+
+        for (ISolicitudLavanderia solicitud : tanda) {
+            solicitud.asignarLote(lotePersistido);
+            solicitud.setEstado(EstadoSolicitud.EN_LAVADO);
+        }
+
+        return lotePersistido;
+    }
+
+    private void validarTanda(
             List<ISolicitudLavanderia> tanda) {
 
         if (tanda == null || tanda.isEmpty()) {
             throw new ValidacionException(
-                    "Debe seleccionar prendas para confirmar el envío."
+                    "Debe seleccionar al menos una solicitud."
             );
         }
 
+        Set<Long> ids = new HashSet<>();
+
         for (ISolicitudLavanderia solicitud : tanda) {
 
-            if (solicitud == null
-                    || solicitud.getEstado() != EstadoSolicitud.PENDIENTE) {
-
+            if (solicitud == null) {
                 throw new ValidacionException(
-                        "Todas las solicitudes deben estar pendientes."
+                        "La tanda contiene solicitudes inválidas."
+                );
+            }
+
+            if (solicitud.getEstado() != EstadoSolicitud.PENDIENTE) {
+                throw new ValidacionException(
+                        "Solo se pueden enviar solicitudes pendientes."
+                );
+            }
+
+            if (solicitud.getLote() != null) {
+                throw new ValidacionException(
+                        "Una solicitud ya está asignada a un lote."
+                );
+            }
+
+            if (solicitud.getIdSolicitud() <= 0) {
+                throw new ValidacionException(
+                        "La solicitud no tiene un identificador persistido."
+                );
+            }
+
+            if (!ids.add(solicitud.getIdSolicitud())) {
+                throw new ValidacionException(
+                        "La tanda contiene solicitudes duplicadas."
                 );
             }
         }
-
-        for (ISolicitudLavanderia solicitud : tanda) {
-            solicitud.setEstado(EstadoSolicitud.EN_LAVADO);
-            repositorio.actualizarEstado(solicitud);
-        }
     }
 
-    /**
-     * Permite cambiar la estrategia de selección.
-     */
-    public void cambiarEstrategia(EstrategiaLavanderia nueva) {
+    // --------------------------------------------------
+    // CAMBIO DE ESTRATEGIA
+    // --------------------------------------------------
 
-        if (nueva == null) {
+    public void cambiarEstrategia(EstrategiaLavanderia estrategia) {
+
+        if (estrategia == null) {
             throw new ValidacionException(
-                    "Estrategia no válida."
+                    "La estrategia de lavandería no puede ser nula."
             );
         }
 
-        this.estrategia = nueva;
+        this.estrategia = estrategia;
+    }
+
+    public void marcarSolicitudLista(
+            ISolicitudLavanderia solicitud) {
+
+        if (solicitud == null) {
+            throw new ValidacionException(
+                    "La solicitud es obligatoria."
+            );
+        }
+
+        if (solicitud.getEstado() != EstadoSolicitud.EN_LAVADO) {
+            throw new ValidacionException(
+                    "Solo se pueden finalizar solicitudes que estén en lavado."
+            );
+        }
+
+        repositorio.actualizarEstado(
+                solicitud.getIdSolicitud(),
+                EstadoSolicitud.LISTA
+        );
+
+        solicitud.setEstado(EstadoSolicitud.LISTA);
     }
 }

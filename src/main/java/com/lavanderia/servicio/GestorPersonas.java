@@ -1,27 +1,37 @@
 package com.lavanderia.servicio;
 
 import com.lavanderia.dao.interfaces.IPersonaDAO;
+import com.lavanderia.dao.interfaces.IClienteDAO;
+import com.lavanderia.dao.interfaces.IEmpleadoDAO;
+
 import com.lavanderia.modelo.interfaces.ICliente;
 import com.lavanderia.modelo.interfaces.IEmpleado;
 import com.lavanderia.modelo.interfaces.IPersona;
+
 import com.lavanderia.patrones.factory.IPersonaFactory;
 import com.lavanderia.servicio.interfaces.IGestorPersonas;
 import com.lavanderia.validacion.ValidacionException;
-import com.lavanderia.validacion.comun.ValidadorComun;
 
 import java.util.Map;
 
 public class GestorPersonas implements IGestorPersonas {
 
     private final IPersonaFactory personaFactory;
+
     private final IPersonaDAO personaDAO;
+    private final IClienteDAO clienteDAO;
+    private final IEmpleadoDAO empleadoDAO;
 
     public GestorPersonas(
             IPersonaFactory personaFactory,
-            IPersonaDAO personaDAO) {
+            IPersonaDAO personaDAO,
+            IClienteDAO clienteDAO,
+            IEmpleadoDAO empleadoDAO) {
 
         this.personaFactory = personaFactory;
         this.personaDAO = personaDAO;
+        this.clienteDAO = clienteDAO;
+        this.empleadoDAO = empleadoDAO;
     }
 
     @Override
@@ -33,7 +43,7 @@ public class GestorPersonas implements IGestorPersonas {
                 cliente.getIdentificacion()
         );
 
-        personaDAO.guardarCliente(cliente);
+        clienteDAO.guardar(cliente);
 
         return cliente;
     }
@@ -47,7 +57,7 @@ public class GestorPersonas implements IGestorPersonas {
                 empleado.getIdentificacion()
         );
 
-        personaDAO.guardarEmpleado(empleado);
+        empleadoDAO.guardar(empleado);
 
         return empleado;
     }
@@ -55,12 +65,10 @@ public class GestorPersonas implements IGestorPersonas {
     @Override
     public IPersona buscarPorIdentificacion(String identificacion) {
 
-        String id = ValidadorComun.identificacion(identificacion);
-
-        return personaDAO.buscarPorIdentificacion(id)
+        return personaDAO.buscarPorIdentificacion(identificacion)
                 .orElseThrow(() -> new ValidacionException(
                         "No existe una persona registrada con la identificación: "
-                                + id
+                                + identificacion
                 ));
     }
 
