@@ -7,66 +7,67 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Contrato de acceso a datos (DAO) para la entidad Alquiler.
+ * Define las operaciones CRUD y consultas especializadas de disponibilidad y estados
+ * sobre las transacciones de alquiler de prendas.
+ */
 public interface IAlquilerDAO {
 
     /**
-     * Registra el alquiler y sus detalles.
-     * El consecutivo y los identificadores son generados
-     * durante la persistencia.
+     * Registra un nuevo alquiler y sus líneas de detalle asociadas.
+     * El número consecutivo y los identificadores únicos son generados durante la persistencia.
      *
-     * @param alquiler alquiler que se desea registrar
-     * @return alquiler persistido con sus identificadores
+     * @param alquiler Objeto de alquiler con los datos a persistir.
+     * @return Alquiler persistido con sus identificadores asignados.
      */
     IAlquiler guardar(IAlquiler alquiler);
 
     /**
-     * Busca un alquiler por su número consecutivo.
+     * Busca un alquiler por su número consecutivo único de servicio.
      *
-     * @param numeroConsecutivo número del servicio
-     * @return alquiler encontrado, si existe
+     * @param numeroConsecutivo Número correlativo único asignado al alquiler.
+     * @return Un {@link Optional} con el alquiler encontrado, o vacío si no existe.
      */
     Optional<IAlquiler> buscarPorConsecutivo(
             int numeroConsecutivo
     );
 
     /**
-     * Consulta todos los alquileres asociados a un cliente.
+     * Consulta el histórico de alquileres asociados a un cliente específico.
      *
-     * @param idCliente identificador del cliente
-     * @return lista de alquileres
+     * @param idCliente Identificador único de la persona cliente.
+     * @return Lista de alquileres asociados al cliente.
      */
     List<IAlquiler> consultarPorCliente(long idCliente);
 
     /**
-     * Consulta los alquileres vigentes de un cliente.
+     * Consulta los alquileres vigentes o activos de un cliente.
+     * Se consideran vigentes aquellos en estado REGISTRADO o ACTIVO.
      *
-     * Se consideran vigentes los que están registrados
-     * o activos, según el estado del alquiler.
-     *
-     * @param idCliente identificador del cliente
-     * @return lista de alquileres vigentes
+     * @param idCliente Identificador único del cliente.
+     * @return Lista de alquileres actualmente en curso para el cliente.
      */
     List<IAlquiler> consultarVigentesPorCliente(
             long idCliente
     );
 
     /**
-     * Consulta los alquileres cuya fecha de inicio
-     * corresponde a la fecha indicada.
+     * Consulta todos los alquileres cuya fecha de inicio coincida con la fecha indicada.
      *
-     * @param fecha fecha de alquiler
-     * @return lista de alquileres
+     * @param fecha Fecha de inicio programada del alquiler.
+     * @return Lista de alquileres programados para esa fecha.
      */
     List<IAlquiler> consultarPorFecha(LocalDate fecha);
 
     /**
-     * Consulta los alquileres que se cruzan con el período
-     * solicitado para una prenda determinada.
+     * Consulta si existen conflictos o solapamientos de fechas para una prenda determinada.
+     * Permite verificar que una prenda no sea alquilada simultáneamente en rangos coincidentes.
      *
-     * @param idPrenda identificador de la prenda
-     * @param fechaInicio inicio del período solicitado
-     * @param fechaFin fin del período solicitado
-     * @return alquileres que presentan cruces de fechas
+     * @param idPrenda Identificador único de la prenda.
+     * @param fechaInicio Inicio del período a consultar.
+     * @param fechaFin Fin del período a consultar.
+     * @return Lista de alquileres que generan conflicto de fechas con la prenda.
      */
     List<IAlquiler> consultarConflictos(
             long idPrenda,
@@ -75,14 +76,20 @@ public interface IAlquilerDAO {
     );
 
     /**
-     * Actualiza el estado de un alquiler.
+     * Actualiza el estado administrativo o de ciclo de vida de un alquiler.
      *
-     * @param idAlquiler identificador del alquiler
-     * @param nuevoEstado nuevo estado
+     * @param idAlquiler Identificador del alquiler a modificar.
+     * @param nuevoEstado Nuevo {@link EstadoAlquiler} (ej. ACTIVO, FINALIZADO, CANCELADO).
      */
     void actualizarEstado(
             long idAlquiler,
             EstadoAlquiler nuevoEstado
     );
+
+    /**
+     * Lista todos los alquileres registrados en el sistema de persistencia.
+     *
+     * @return Lista completa de alquileres.
+     */
     List<IAlquiler> listarTodos();
 }

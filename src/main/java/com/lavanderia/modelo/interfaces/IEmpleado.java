@@ -1,9 +1,15 @@
 package com.lavanderia.modelo.interfaces;
 
-import com.lavanderia.modelo.persona.Empleado;
-
-import java.util.Map;
-
+/**
+ * Contrato que representa a un empleado del negocio en el modelo de dominio.
+ * Extiende {@link IPersona} agregando información sobre el cargo desempeñado.
+ */
 public interface IEmpleado extends IPersona {
- String getCargo();
+
+    /**
+     * Obtiene el cargo o función laboral del empleado dentro de la empresa.
+     *
+     * @return Nombre del cargo asignado.
+     */
+    String getCargo();
 }
