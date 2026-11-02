@@ -44,21 +44,44 @@ public final class EmpleadoDAOSQLite extends SQLiteDAO implements IEmpleadoDAO {
    */
   @Override
   public void guardar(IEmpleado p) {
-    transaccion(
-        c -> {
-          long id =
-              insertar(
+
+      Objects.requireNonNull(p, "El empleado no puede ser nulo.");
+
+      transaccion(c -> {
+
+          long id = insertar(
                   c,
-                  "INSERT INTO PERSONA(identificacion,nombre,direccion,telefono,correo) VALUES"
-                      + " (?,?,?,?,?)",
+                  """
+                  INSERT INTO PERSONA (
+                      identificacion,
+                      nombre,
+                      direccion,
+                      telefono,
+                      correo
+                  )
+                  VALUES (?, ?, ?, ?, ?)
+                  """,
                   p.getIdentificacion(),
                   p.getNombre(),
                   p.getDireccion(),
                   p.getTelefono(),
-                  p.getCorreo());
-          cambiar(c, "INSERT INTO EMPLEADO VALUES (?,?)", id, p.getCargo());
+                  p.getCorreo()
+          );
+
+          int filas = cambiar(
+                  c,
+                  """
+                  INSERT INTO EMPLEADO (id_persona, cargo)
+                  VALUES (?, ?)
+                  """,
+                  id,
+                  p.getCargo()
+          );
+
+          exigirUno(filas);
+
           return null;
-        });
+      });
   }
 
   /** Consulta base que reúne los datos necesarios para reconstruir la entidad. */

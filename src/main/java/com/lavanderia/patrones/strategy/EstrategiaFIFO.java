@@ -36,9 +36,9 @@ public class EstrategiaFIFO implements IEstrategiaPrioridadLavanderia {
 
         // Ordenar ascendentemente por fecha de recepción (las más antiguas primero)
         copia.sort(
-                Comparator.comparing(
-                        ISolicitudLavanderia::getFechaRecepcion
-                )
+                Comparator
+                        .comparing(ISolicitudLavanderia::getFechaRecepcion)
+                        .thenComparingLong(ISolicitudLavanderia::getIdSolicitud)
         );
 
         // Tomar las primeras N solicitudes según el cupo disponible

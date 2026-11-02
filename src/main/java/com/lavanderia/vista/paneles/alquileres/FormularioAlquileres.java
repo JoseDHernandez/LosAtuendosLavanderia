@@ -162,7 +162,8 @@ public class FormularioAlquileres extends JDialog {
 
         panelContenido.setOpaque(false);
 
-        PanelFormulario formulario = new PanelFormulario();
+        PanelFormulario formulario =
+                new PanelFormulario(null, null, null, null);
 
         formulario.agregarCampo(
                 crearCampo("Cliente", selectorCliente),

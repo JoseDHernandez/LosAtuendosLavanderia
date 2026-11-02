@@ -196,4 +196,41 @@ public final class LavanderiaDAOSQLite extends SQLiteDAO implements ILavanderiaD
           return null;
         });
   }
+
+    @Override
+    public List<ISolicitudLavanderia> listarSolicitudes() {
+
+        return ejecutar(
+                c -> consultar(
+                        c,
+                        """
+                        SELECT *
+                        FROM SOLICITUD_LAVANDERIA
+                        ORDER BY fecha_recepcion DESC, id_solicitud DESC
+                        """,
+                        r -> (ISolicitudLavanderia) mapear(c, r)
+                )
+        );
+    }
+
+    @Override
+    public List<ILoteLavanderia> listarLotes() {
+
+        return ejecutar(
+                c -> consultar(
+                        c,
+                        """
+                        SELECT *
+                        FROM LOTE_LAVANDERIA
+                        ORDER BY fecha_envio DESC, id_lote DESC
+                        """,
+                        r -> (ILoteLavanderia) new LoteLavanderia(
+                                r.getLong("id_lote"),
+                                LocalDate.parse(r.getString("fecha_envio")),
+                                r.getInt("cupo"),
+                                EstadoLote.valueOf(r.getString("estado"))
+                        )
+                )
+        );
+    }
 }

@@ -302,15 +302,40 @@ public class FormularioEmpleados extends JDialog {
 
         } catch (RuntimeException ex) {
 
+            // Imprimir la excepción completa en la consola de errores.
+            ex.printStackTrace(System.err);
+
+            // Construir el detalle de todas las causas.
+            StringBuilder detalle = new StringBuilder();
+
+            Throwable causa = ex;
+            int nivel = 1;
+
+            while (causa != null) {
+
+                detalle.append("Causa ").append(nivel).append(":\n");
+                detalle.append(causa.getClass().getName()).append("\n");
+                detalle.append(causa.getMessage()).append("\n\n");
+
+                causa = causa.getCause();
+                nivel++;
+            }
+
+            // Mostrar el error completo en una ventana.
+            JTextArea area = new JTextArea(detalle.toString());
+
+            area.setEditable(false);
+            area.setLineWrap(true);
+            area.setWrapStyleWord(true);
+            area.setCaretPosition(0);
+
+            JScrollPane scroll = new JScrollPane(area);
+            scroll.setPreferredSize(new Dimension(550, 300));
+
             JOptionPane.showMessageDialog(
                     this,
-                    "No fue posible "
-                            + (esEdicion()
-                            ? "actualizar"
-                            : "registrar")
-                            + " el empleado.\n"
-                            + ex.getMessage(),
-                    "Error en la operación",
+                    scroll,
+                    "Detalle del error al registrar empleado",
                     JOptionPane.ERROR_MESSAGE
             );
         }
