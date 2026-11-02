@@ -16,6 +16,7 @@ import java.util.Objects;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/** Recoge los datos del formulario de clientes y coordina las acciones de esa pantalla. */
 public class FormularioClientes extends JDialog {
 
     private final IGestorPersonas gestorPersonas;

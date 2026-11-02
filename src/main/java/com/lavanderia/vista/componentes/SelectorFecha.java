@@ -10,6 +10,7 @@ import java.util.Calendar;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/** Componente para recoger o seleccionar fechas desde la interfaz. */
 public class SelectorFecha extends JPanel {
 
     private final JLabel lblEtiqueta;

@@ -1,0 +1,26 @@
+sequenceDiagram
+ participant Inicio as Composición de la aplicación
+ participant F as SQLiteDAOFactory
+ participant C as SQLiteConnection
+ participant G as GestorPersonas
+ participant D as ClienteDAOSQLite
+ participant B as SQLite
+ Inicio->>F: new SQLiteDAOFactory(ruta)
+ F->>C: inicializar()
+ C->>B: CREATE TABLE IF NOT EXISTS
+ Inicio->>F: getClienteDAO()
+ F-->>Inicio: IClienteDAO (ClienteDAOSQLite)
+ Inicio->>G: inyectar DAO y demás dependencias
+ G->>D: guardar(cliente)
+ D->>C: getConnection()
+ C->>B: abrir + PRAGMA foreign_keys=ON
+ D->>B: iniciar transacción
+ D->>B: INSERT PERSONA
+ D->>B: INSERT CLIENTE
+ alt ambas inserciones correctas
+  D->>B: COMMIT
+ else falla SQL
+  D->>B: ROLLBACK
+  D-->>G: PersistenciaException (con causa)
+ end
+ D->>B: cerrar conexión y recursos

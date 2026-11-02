@@ -26,6 +26,7 @@ import java.util.Objects;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/** Presenta el módulo de devoluciones y sus acciones en la interfaz Swing. */
 public class PanelDevoluciones extends PanelModulo {
 
     private final ISistemaFacade sistemaFacade;

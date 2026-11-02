@@ -7,6 +7,7 @@ import java.awt.event.KeyEvent;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/** Componente visual para solicitar confirmación de una acción. */
 public class DialogoConfirmacion extends JDialog {
 
     private boolean confirmado = false;

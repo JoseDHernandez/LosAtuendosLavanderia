@@ -9,6 +9,7 @@ import java.awt.event.ActionListener;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/** Presenta el encabezado visual de un módulo. */
 public class PanelEncabezado extends JPanel {
 
     private final JLabel lblTitulo;

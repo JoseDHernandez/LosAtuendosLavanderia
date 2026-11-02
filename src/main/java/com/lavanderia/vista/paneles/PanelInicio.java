@@ -11,6 +11,7 @@ import java.awt.*;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/** Muestra el módulo inicial de la aplicación. */
 public class PanelInicio extends JPanel implements IModuloVista {
 
     public PanelInicio() {

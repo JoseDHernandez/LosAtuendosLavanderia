@@ -11,6 +11,7 @@ import java.awt.event.ActionListener;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/** Contenedor común para organizar campos y acciones de un formulario. */
 public class PanelFormulario extends JPanel {
 
     private final JPanel panelCampos;

@@ -1,0 +1,59 @@
+classDiagram
+ direction TB
+ class DAOFactory {
+  <<interface>>
+  +getPersonaDAO() IPersonaDAO
+  +getClienteDAO() IClienteDAO
+  +getEmpleadoDAO() IEmpleadoDAO
+  +getPrendaDAO() IPrendaDAO
+  +getAlquilerDAO() IAlquilerDAO
+  +getDevolucionDAO() IDevolucionDAO
+  +getLavanderiaDAO() ILavanderiaDAO
+ }
+ DAOFactory <|.. SQLiteDAOFactory
+ SQLiteDAOFactory --> SQLiteConnection
+ class IPersonaDAO {
+  <<interface>>
+ }
+ IPersonaDAO <|.. PersonaDAOSQLite
+ SQLiteDAOFactory ..> PersonaDAOSQLite : crea
+ PersonaDAOSQLite --> SQLiteConnection : usa
+ class IClienteDAO {
+  <<interface>>
+ }
+ IClienteDAO <|.. ClienteDAOSQLite
+ SQLiteDAOFactory ..> ClienteDAOSQLite : crea
+ ClienteDAOSQLite --> SQLiteConnection : usa
+ class IEmpleadoDAO {
+  <<interface>>
+ }
+ IEmpleadoDAO <|.. EmpleadoDAOSQLite
+ SQLiteDAOFactory ..> EmpleadoDAOSQLite : crea
+ EmpleadoDAOSQLite --> SQLiteConnection : usa
+ class IPrendaDAO {
+  <<interface>>
+ }
+ IPrendaDAO <|.. PrendaDAOSQLite
+ SQLiteDAOFactory ..> PrendaDAOSQLite : crea
+ PrendaDAOSQLite --> SQLiteConnection : usa
+ class IAlquilerDAO {
+  <<interface>>
+ }
+ IAlquilerDAO <|.. AlquilerDAOSQLite
+ SQLiteDAOFactory ..> AlquilerDAOSQLite : crea
+ AlquilerDAOSQLite --> SQLiteConnection : usa
+ class IDevolucionDAO {
+  <<interface>>
+ }
+ IDevolucionDAO <|.. DevolucionDAOSQLite
+ SQLiteDAOFactory ..> DevolucionDAOSQLite : crea
+ DevolucionDAOSQLite --> SQLiteConnection : usa
+ class ILavanderiaDAO {
+  <<interface>>
+ }
+ ILavanderiaDAO <|.. LavanderiaDAOSQLite
+ SQLiteDAOFactory ..> LavanderiaDAOSQLite : crea
+ LavanderiaDAOSQLite --> SQLiteConnection : usa
+ GestorPersonas --> IClienteDAO
+ GestorPersonas --> IEmpleadoDAO
+ GestorPersonas --> IPersonaDAO

@@ -24,6 +24,7 @@ import java.util.Objects;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/** Recoge los datos del formulario de devolucion y coordina las acciones de esa pantalla. */
 public class FormularioDevolucion extends JDialog {
 
     private final IGestorAlquiler gestorAlquiler;

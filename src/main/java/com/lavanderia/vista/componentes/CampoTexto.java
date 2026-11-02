@@ -9,6 +9,7 @@ import java.awt.*;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/** Componente reutilizable para ingresar texto. */
 public class CampoTexto extends JPanel {
 
     private final JLabel lblEtiqueta;

@@ -23,6 +23,7 @@ import java.util.Objects;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/** Presenta el módulo de alquileres y sus acciones en la interfaz Swing. */
 public class PanelAlquileres extends PanelModulo {
     private final ISistemaFacade sistemaFacade;
     private final IGestorAlquiler gestorAlquiler;

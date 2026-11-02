@@ -37,7 +37,7 @@ public class ClienteCreator extends PersonaCreator {
         // 'validator.validar(datos)' retorna 'ResultadoValidacion<Map<String, String>>',
         // no un 'Map<String, String>' directamente.
         // Solución requerida: validator.validar(datos).obtenerValor();
-        Map<String, String> d = validator.validar(datos);
+        Map<String, String> d = validator.validar(datos).obtenerValor();
 
         // Construir la instancia de Cliente con los datos extraídos
         return new Cliente(

@@ -11,6 +11,7 @@ import java.awt.event.ActionListener;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/** Contenedor visual común para presentar datos tabulares. */
 public class PanelTabla extends JPanel {
 
     private final CampoBusqueda campoBusqueda;
