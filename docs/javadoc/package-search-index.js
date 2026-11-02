@@ -1,0 +1,1 @@
+packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html","k":"18"},{"l":"com.lavanderia.conexion"},{"l":"com.lavanderia.dao.interfaces"},{"l":"com.lavanderia.dao.sqlite"}];updateSearchResults();

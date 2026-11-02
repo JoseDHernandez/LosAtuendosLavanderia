@@ -8,6 +8,7 @@ import java.awt.event.MouseEvent;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/** Botón con el estilo destinado a la acción principal. */
 public class BotonPrincipal extends JButton {
 
     private boolean hover = false;

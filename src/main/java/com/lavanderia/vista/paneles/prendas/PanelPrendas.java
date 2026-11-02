@@ -27,6 +27,7 @@ import java.util.Objects;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/** Presenta el módulo de prendas y sus acciones en la interfaz Swing. */
 public class PanelPrendas extends PanelModulo {
 
     private final IGestorPrendas gestorPrendas;

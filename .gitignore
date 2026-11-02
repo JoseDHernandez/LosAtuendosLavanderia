@@ -35,10 +35,20 @@ build/
 
 ### VS Code ###
 .vscode/
-# JAva
-.class
+
+### Java ###
+*.class
+
+### SQLite ###
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
 ### Mac OS ###
 .DS_Store
 Thumbs.db
-.log
-.tmp
+
+### Temporary files and logs ###
+*.log
+*.tmp

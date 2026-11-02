@@ -22,6 +22,7 @@ import java.util.Objects;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/** Recoge los datos del formulario de prendas y coordina las acciones de esa pantalla. */
 public class FormularioPrendas extends JDialog {
 
     private enum TipoPrenda {

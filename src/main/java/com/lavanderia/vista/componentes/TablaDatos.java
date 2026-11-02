@@ -11,6 +11,7 @@ import java.awt.*;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/** Componente reutilizable para mostrar datos en una tabla. */
 public class TablaDatos extends JPanel {
 
     private final JTable tabla;

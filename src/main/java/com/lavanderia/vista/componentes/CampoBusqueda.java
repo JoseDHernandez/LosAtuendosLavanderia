@@ -9,6 +9,7 @@ import java.awt.event.MouseEvent;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/** Componente reutilizable para ingresar criterios de búsqueda. */
 public class CampoBusqueda extends JPanel {
 
     private final JTextField txtBusqueda;

@@ -8,6 +8,7 @@ import java.awt.event.MouseEvent;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/** Botón con el estilo de acciones secundarias. */
 public class BotonSecundario extends JButton {
 
     private boolean hover = false;

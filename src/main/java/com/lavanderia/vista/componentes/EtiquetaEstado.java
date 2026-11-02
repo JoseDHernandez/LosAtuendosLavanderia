@@ -8,6 +8,7 @@ import java.awt.*;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/** Representa visualmente un estado de la aplicación. */
 public class EtiquetaEstado extends JLabel {
 
     public enum TipoEstado {

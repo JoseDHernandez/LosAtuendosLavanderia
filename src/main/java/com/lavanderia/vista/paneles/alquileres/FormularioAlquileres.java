@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/** Recoge los datos del formulario de alquileres y coordina las acciones de esa pantalla. */
 public class FormularioAlquileres extends JDialog {
 
     private final IGestorPersonas gestorPersonas;

@@ -24,6 +24,7 @@ import java.util.Objects;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/** Presenta el módulo de clientes y sus acciones en la interfaz Swing. */
 public class PanelClientes extends PanelModulo {
 
     private final IGestorPersonas gestorPersonas;
