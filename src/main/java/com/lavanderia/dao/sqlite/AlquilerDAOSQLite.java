@@ -14,6 +14,193 @@ import java.util.*;
 
 /** Alquiler y detalles en una transacción, con bloqueo previo a comprobar disponibilidad. */
 public final class AlquilerDAOSQLite extends SQLiteDAO implements IAlquilerDAO {
+
+  /**
+   * Actualiza la cabecera y los detalles de un alquiler existente.
+   * Conserva el identificador, consecutivo, fecha de solicitud y estado.
+   *
+   * Toda la operación se ejecuta dentro de una transacción.
+   *
+   * @param a Alquiler con los datos modificados.
+   * @return Alquiler actualizado desde la persistencia.
+   */
+  @Override
+  public IAlquiler actualizar(IAlquiler a) {
+
+    if (a == null || a.getIdAlquiler() <= 0) {
+      throw new IllegalArgumentException(
+              "El alquiler que se desea actualizar no es válido."
+      );
+    }
+
+    if (a.getFechaInicio() == null
+            || a.getFechaFinPrevista() == null
+            || !a.getFechaFinPrevista().isAfter(a.getFechaInicio())) {
+
+      throw new IllegalArgumentException(
+              "El rango de fechas del alquiler no es válido."
+      );
+    }
+
+    if (a.getCliente() == null || a.getEmpleado() == null) {
+      throw new IllegalArgumentException(
+              "El cliente y el empleado son obligatorios."
+      );
+    }
+
+    if (a.getDetalles() == null || a.getDetalles().isEmpty()) {
+      throw new IllegalArgumentException(
+              "El alquiler debe contener al menos una prenda."
+      );
+    }
+
+    long idAlquiler = a.getIdAlquiler();
+
+    transaccion(c -> {
+
+      // Comprobar que el alquiler exista.
+      List<Long> alquilerExistente = consultar(
+              c,
+              "SELECT id_alquiler FROM ALQUILER WHERE id_alquiler=?",
+              r -> r.getLong(1),
+              idAlquiler
+      );
+
+      if (alquilerExistente.isEmpty()) {
+        throw new SQLException(
+                "El alquiler que desea actualizar no existe."
+        );
+      }
+
+      // Actualizar los datos generales sin modificar consecutivo,
+      // fecha de solicitud ni estado.
+      int filasActualizadas = cambiar(
+              c,
+              "UPDATE ALQUILER SET "
+                      + "fecha_inicio=?, "
+                      + "fecha_fin_prevista=?, "
+                      + "id_cliente=(SELECT id_persona FROM PERSONA "
+                      + "WHERE identificacion=?), "
+                      + "id_empleado=(SELECT id_persona FROM PERSONA "
+                      + "WHERE identificacion=?) "
+                      + "WHERE id_alquiler=?",
+              a.getFechaInicio().toString(),
+              a.getFechaFinPrevista().toString(),
+              a.getCliente().getIdentificacion(),
+              a.getEmpleado().getIdentificacion(),
+              idAlquiler
+      );
+
+      exigirUno(filasActualizadas);
+
+      // Verificar y preparar los detalles antes de reemplazarlos.
+      Set<Long> prendasRegistradas = new HashSet<>();
+
+      for (IDetalleAlquiler detalle : a.getDetalles()) {
+
+        if (detalle == null || detalle.getPrenda() == null) {
+          throw new SQLException(
+                  "El alquiler contiene un detalle inválido."
+          );
+        }
+
+        if (detalle.getValorAcordado() == null
+                || detalle.getValorAcordado().signum() < 0) {
+
+          throw new SQLException(
+                  "El valor acordado de una prenda no es válido."
+          );
+        }
+
+        // Buscar la prenda y comprobar que esté registrada.
+        List<Long> ids = consultar(
+                c,
+                "SELECT id_prenda FROM PRENDA "
+                        + "WHERE referencia=? AND estado='DISPONIBLE'",
+                r -> r.getLong(1),
+                detalle.getPrenda().getReferencia()
+        );
+
+        if (ids.isEmpty()) {
+          throw new SQLException(
+                  "La prenda "
+                          + detalle.getPrenda().getReferencia()
+                          + " no está disponible."
+          );
+        }
+
+        long idPrenda = ids.getFirst();
+
+        // Evitar prendas duplicadas.
+        if (!prendasRegistradas.add(idPrenda)) {
+          throw new SQLException(
+                  "El alquiler contiene prendas duplicadas."
+          );
+        }
+
+        // Comprobar cruces excluyendo el propio alquiler.
+        List<Integer> conflictos = consultar(
+                c,
+                "SELECT 1 FROM DETALLE_ALQUILER d "
+                        + "JOIN ALQUILER a USING(id_alquiler) "
+                        + "WHERE d.id_prenda=? "
+                        + "AND a.id_alquiler<>? "
+                        + "AND a.estado IN ('REGISTRADO','ACTIVO') "
+                        + "AND a.fecha_inicio<=? "
+                        + "AND a.fecha_fin_prevista>=?",
+                r -> r.getInt(1),
+                idPrenda,
+                idAlquiler,
+                a.getFechaFinPrevista().toString(),
+                a.getFechaInicio().toString()
+        );
+
+        if (!conflictos.isEmpty()) {
+          throw new SQLException(
+                  "La prenda "
+                          + detalle.getPrenda().getReferencia()
+                          + " ya está reservada para esas fechas."
+          );
+        }
+      }
+
+      // Eliminar los detalles anteriores.
+      cambiar(
+              c,
+              "DELETE FROM DETALLE_ALQUILER WHERE id_alquiler=?",
+              idAlquiler
+      );
+
+      // Insertar los detalles actualizados.
+      for (IDetalleAlquiler detalle : a.getDetalles()) {
+
+        long idPrenda = consultar(
+                c,
+                "SELECT id_prenda FROM PRENDA WHERE referencia=?",
+                r -> r.getLong(1),
+                detalle.getPrenda().getReferencia()
+        ).getFirst();
+
+        insertar(
+                c,
+                "INSERT INTO DETALLE_ALQUILER "
+                        + "(id_alquiler,id_prenda,valor_acordado) "
+                        + "VALUES (?,?,?)",
+                idAlquiler,
+                idPrenda,
+                detalle.getValorAcordado().toPlainString()
+        );
+      }
+
+      return null;
+    });
+
+    return lista(
+            " WHERE a.id_alquiler=?",
+            idAlquiler
+    ).getFirst();
+  }
+
   /**
    * Recibe el proveedor de conexiones por constructor, para usar la configuración de esta familia
    * SQLite.

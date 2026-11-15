@@ -5,12 +5,11 @@ import com.lavanderia.modelo.interfaces.IEmpleado;
 import com.lavanderia.patrones.facade.ISistemaFacade;
 import com.lavanderia.servicio.interfaces.IGestorPersonas;
 import com.lavanderia.validacion.persona.IPersonaValidator;
-import com.lavanderia.vista.componentes.BotonPrincipal;
 import com.lavanderia.vista.componentes.BotonSecundario;
-import com.lavanderia.vista.componentes.CampoBusqueda;
-import com.lavanderia.vista.componentes.TablaDatos;
+import com.lavanderia.vista.componentes.DialogoConfirmacion;
 import com.lavanderia.vista.estilos.IconosUI;
 import com.lavanderia.vista.paneles.comunes.PanelModulo;
+import com.lavanderia.vista.paneles.comunes.PanelTabla;
 
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
@@ -24,24 +23,29 @@ import java.util.Objects;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
-/** Presenta el módulo de empleados y sus acciones en la interfaz Swing. */
 public class PanelEmpleados extends PanelModulo {
 
     private final IGestorPersonas gestorPersonas;
     private final IPersonaValidator validador;
 
-    private final CampoBusqueda campoBusqueda;
-    private final TablaDatos tablaEmpleados;
+    private final PanelTabla panelTabla;
     private final DefaultTableModel modeloTabla;
 
     private final BotonSecundario botonEditar;
+    private final BotonSecundario botonEliminar;
+    private final BotonSecundario botonActualizar;
 
     private List<IEmpleado> empleados;
+
+    // ==========================================
+    // CONSTRUCTOR
+    // ==========================================
 
     public PanelEmpleados(
             ISistemaFacade sistemaFacade,
             IPersonaValidator validador
     ) {
+
         super(
                 "empleados",
                 "Empleados",
@@ -66,14 +70,23 @@ public class PanelEmpleados extends PanelModulo {
 
         this.empleados = new ArrayList<>();
 
-        this.campoBusqueda = new CampoBusqueda(
-                "Buscar por identificación, nombre, teléfono o correo..."
+        this.panelTabla = new PanelTabla(
+                "Buscar por identificación, nombre, cargo o correo..."
         );
 
-        this.tablaEmpleados = new TablaDatos();
         this.modeloTabla = crearModeloTabla();
 
-        this.botonEditar = new BotonSecundario("Editar empleado");
+        this.botonEditar = new BotonSecundario(
+                "Editar empleado"
+        );
+
+        this.botonEliminar = new BotonSecundario(
+                "Eliminar empleado"
+        );
+
+        this.botonActualizar = new BotonSecundario(
+                "Actualizar"
+        );
 
         inicializarComponentes();
         configurarEventos();
@@ -81,218 +94,115 @@ public class PanelEmpleados extends PanelModulo {
     }
 
     // ==========================================
-    // INICIALIZACIÓN DE COMPONENTES
+    // INICIALIZACIÓN
     // ==========================================
 
     private void inicializarComponentes() {
 
-        JPanel panelPrincipal = new JPanel(
-                new BorderLayout(0, ESPACIADO_MD)
+        // Acción principal del encabezado.
+        configurarAccion(
+                "Nuevo empleado",
+                e -> abrirFormularioRegistro()
         );
 
-        panelPrincipal.setOpaque(false);
+        // Configuración de la tabla.
+        panelTabla.setModelo(modeloTabla);
 
-        JPanel panelHerramientas = new JPanel(
-                new BorderLayout()
+        panelTabla.getTablaDatos()
+                .setOrdenamientoHabilitado(true);
+
+        panelTabla.getTablaDatos()
+                .setSeleccionMultiple(false);
+
+        // Acciones secundarias.
+        botonEditar.configurarIcono(
+                IconosUI.editar()
         );
 
-        panelHerramientas.setOpaque(false);
-
-        JLabel etiquetaResultados = crearEtiqueta(
-                "Empleados registrados",
-                FUENTE_SECCION,
-                TEXTO
+        botonEliminar.configurarIcono(
+                IconosUI.eliminar()
         );
 
-        // Botón registrar
-        BotonPrincipal botonNuevo =
-                new BotonPrincipal("Nuevo empleado");
+        botonActualizar.configurarIcono(
+                IconosUI.actualizar()
+        );
 
-        botonNuevo.configurarIcono(IconosUI.agregar());
-        botonNuevo.addActionListener(e -> abrirFormularioRegistro());
-
-// Botón editar
-      BotonSecundario botonEditar = new BotonSecundario("Editar empleado");
-
-        botonEditar.configurarIcono(IconosUI.editar());
-        botonEditar.addActionListener(e -> abrirFormularioEdicion());
         botonEditar.setEnabled(false);
+        botonEliminar.setEnabled(false);
 
-// Botón actualizar
-        BotonSecundario botonActualizar =
-                new BotonSecundario("Actualizar");
+        panelTabla.agregarAccion(botonEditar);
+        panelTabla.agregarAccion(botonEliminar);
+        panelTabla.agregarAccion(botonActualizar);
 
-        botonActualizar.configurarIcono(IconosUI.actualizar());
-        botonActualizar.addActionListener(e -> cargarEmpleados());
-
-        JPanel panelAcciones = new JPanel(
-                new FlowLayout(
-                        FlowLayout.RIGHT,
-                        ESPACIADO_SM,
-                        0
-                )
-        );
-
-        panelAcciones.setOpaque(false);
-        panelAcciones.add(campoBusqueda);
-        panelAcciones.add(botonEditar);
-        panelAcciones.add(botonActualizar);
-        panelAcciones.add(botonNuevo);
-
-        panelHerramientas.add(
-                etiquetaResultados,
-                BorderLayout.WEST
-        );
-
-        panelHerramientas.add(
-                panelAcciones,
-                BorderLayout.EAST
-        );
-
-        tablaEmpleados.setModelo(modeloTabla);
-        tablaEmpleados.setOrdenamientoHabilitado(true);
-
-        panelPrincipal.add(
-                panelHerramientas,
-                BorderLayout.NORTH
-        );
-
-        panelPrincipal.add(
-                tablaEmpleados,
-                BorderLayout.CENTER
-        );
-
-        agregarContenido(panelPrincipal);
+        agregarContenido(panelTabla);
     }
 
     // ==========================================
-    // APERTURA DE FORMULARIOS
-    // ==========================================
-
-    private void abrirFormularioRegistro() {
-
-        Window propietario =
-                SwingUtilities.getWindowAncestor(this);
-
-        FormularioEmpleados formulario = new FormularioEmpleados(
-                propietario,
-                gestorPersonas,
-                validador,
-                this::cargarEmpleados
-        );
-
-        formulario.mostrar();
-    }
-
-    private void abrirFormularioEdicion() {
-
-        IEmpleado empleado = obtenerEmpleadoSeleccionado();
-
-        if (empleado == null) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Seleccione un empleado para editar.",
-                    "Selección requerida",
-                    JOptionPane.WARNING_MESSAGE
-            );
-
-            return;
-        }
-
-        Window propietario =
-                SwingUtilities.getWindowAncestor(this);
-
-        FormularioEmpleados formulario = new FormularioEmpleados(
-                propietario,
-                gestorPersonas,
-                validador,
-                empleado,
-                this::cargarEmpleados
-        );
-
-        formulario.mostrar();
-    }
-
-    // ==========================================
-    // OBTENER EMPLEADO SELECCIONADO
-    // ==========================================
-
-    private IEmpleado obtenerEmpleadoSeleccionado() {
-
-        int filaVista = tablaEmpleados.getFilaSeleccionada();
-
-        if (filaVista == -1) {
-            return null;
-        }
-
-        int filaModelo = tablaEmpleados.getTabla()
-                .convertRowIndexToModel(filaVista);
-
-        String identificacion = String.valueOf(
-                modeloTabla.getValueAt(filaModelo, 0)
-        );
-
-        return empleados.stream()
-                .filter(Objects::nonNull)
-                .filter(empleado ->
-                        identificacion.equals(
-                                empleado.getIdentificacion()
-                        )
-                )
-                .findFirst()
-                .orElse(null);
-    }
-
-    // ==========================================
-    // EVENTOS
+    // CONFIGURACIÓN DE EVENTOS
     // ==========================================
 
     private void configurarEventos() {
 
-        campoBusqueda.addDocumentListener(new DocumentListener() {
+        botonEditar.addActionListener(
+                e -> abrirFormularioEdicion()
+        );
 
-            @Override
-            public void insertUpdate(DocumentEvent e) {
-                filtrarEmpleados();
-            }
+        botonEliminar.addActionListener(
+                e -> eliminarEmpleado()
+        );
 
-            @Override
-            public void removeUpdate(DocumentEvent e) {
-                filtrarEmpleados();
-            }
+        botonActualizar.addActionListener(
+                e -> cargarEmpleados()
+        );
 
-            @Override
-            public void changedUpdate(DocumentEvent e) {
-                filtrarEmpleados();
-            }
-        });
+        panelTabla.getCampoBusqueda()
+                .addDocumentListener(new DocumentListener() {
 
-        tablaEmpleados.getTabla()
+                    @Override
+                    public void insertUpdate(DocumentEvent e) {
+                        filtrarEmpleados();
+                    }
+
+                    @Override
+                    public void removeUpdate(DocumentEvent e) {
+                        filtrarEmpleados();
+                    }
+
+                    @Override
+                    public void changedUpdate(DocumentEvent e) {
+                        filtrarEmpleados();
+                    }
+                });
+
+        panelTabla.getTablaDatos()
+                .getTabla()
                 .getSelectionModel()
                 .addListSelectionListener(e -> {
 
                     if (!e.getValueIsAdjusting()) {
-                        botonEditar.setEnabled(
-                                tablaEmpleados.getFilaSeleccionada() != -1
-                        );
+                        actualizarEstadoAcciones();
                     }
                 });
 
-        tablaEmpleados.getTabla().addMouseListener(
-                new java.awt.event.MouseAdapter() {
+        // Doble clic para editar.
+        panelTabla.getTablaDatos()
+                .getTabla()
+                .addMouseListener(
+                        new java.awt.event.MouseAdapter() {
 
-                    @Override
-                    public void mouseClicked(java.awt.event.MouseEvent e) {
+                            @Override
+                            public void mouseClicked(
+                                    java.awt.event.MouseEvent e
+                            ) {
 
-                        if (e.getClickCount() == 2
-                                && SwingUtilities.isLeftMouseButton(e)) {
+                                if (e.getClickCount() == 2
+                                        && SwingUtilities.isLeftMouseButton(e)) {
 
-                            abrirFormularioEdicion();
+                                    abrirFormularioEdicion();
+                                }
+                            }
                         }
-                    }
-                }
-        );
+                );
     }
 
     // ==========================================
@@ -312,15 +222,168 @@ public class PanelEmpleados extends PanelModulo {
                 },
                 0
         ) {
+
             @Override
-            public boolean isCellEditable(int fila, int columna) {
+            public boolean isCellEditable(
+                    int fila,
+                    int columna
+            ) {
                 return false;
             }
         };
     }
 
     // ==========================================
-    // CONSULTA DE EMPLEADOS
+    // REGISTRAR EMPLEADO
+    // ==========================================
+
+    private void abrirFormularioRegistro() {
+
+        Window propietario =
+                SwingUtilities.getWindowAncestor(this);
+
+        FormularioEmpleados formulario =
+                new FormularioEmpleados(
+                        propietario,
+                        gestorPersonas,
+                        validador,
+                        this::cargarEmpleados
+                );
+
+        formulario.mostrar();
+    }
+
+    // ==========================================
+    // ACTUALIZAR EMPLEADO
+    // ==========================================
+
+    private void abrirFormularioEdicion() {
+
+        IEmpleado empleado = obtenerEmpleadoSeleccionado();
+
+        if (empleado == null) {
+            mostrarAdvertencia(
+                    "Seleccione un empleado para actualizar."
+            );
+            return;
+        }
+
+        Window propietario =
+                SwingUtilities.getWindowAncestor(this);
+
+        FormularioEmpleados formulario =
+                new FormularioEmpleados(
+                        propietario,
+                        gestorPersonas,
+                        validador,
+                        empleado,
+                        this::cargarEmpleados
+                );
+
+        formulario.mostrar();
+    }
+
+    // ==========================================
+    // ELIMINAR EMPLEADO
+    // ==========================================
+
+    private void eliminarEmpleado() {
+
+        IEmpleado empleado = obtenerEmpleadoSeleccionado();
+
+        if (empleado == null) {
+            mostrarAdvertencia(
+                    "Seleccione un empleado para eliminar."
+            );
+            return;
+        }
+
+        Window propietario =
+                SwingUtilities.getWindowAncestor(this);
+
+        DialogoConfirmacion dialogo =
+                new DialogoConfirmacion(
+                        propietario,
+                        "Eliminar empleado",
+                        "¿Está seguro de que desea eliminar al empleado "
+                                + empleado.getNombre()
+                                + "?\n\n"
+                                + "Esta operación no se puede deshacer."
+                );
+
+        if (!dialogo.mostrarDialogo()) {
+            return;
+        }
+
+        try {
+
+            gestorPersonas.eliminarEmpleado(
+                    empleado.getIdentificacion()
+            );
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "El empleado fue eliminado correctamente.",
+                    "Eliminación exitosa",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+
+            cargarEmpleados();
+
+        } catch (RuntimeException ex) {
+
+            ex.printStackTrace(System.err);
+
+            mostrarError(
+                    "No fue posible eliminar el empleado.\n\n"
+                            + obtenerMensajeError(ex)
+            );
+        }
+    }
+
+    // ==========================================
+    // OBTENER EMPLEADO SELECCIONADO
+    // ==========================================
+
+    private IEmpleado obtenerEmpleadoSeleccionado() {
+
+        int filaModelo = panelTabla.getTablaDatos()
+                .getFilaSeleccionada();
+
+        if (filaModelo == -1) {
+            return null;
+        }
+
+        String identificacion = String.valueOf(
+                modeloTabla.getValueAt(filaModelo, 0)
+        );
+
+        return empleados.stream()
+                .filter(Objects::nonNull)
+                .filter(empleado ->
+                        identificacion.equals(
+                                empleado.getIdentificacion()
+                        )
+                )
+                .findFirst()
+                .orElse(null);
+    }
+
+    // ==========================================
+    // ESTADO DE LAS ACCIONES
+    // ==========================================
+
+    private void actualizarEstadoAcciones() {
+
+        boolean haySeleccion =
+                panelTabla.getTablaDatos().haySeleccion();
+
+        botonEditar.setEnabled(haySeleccion);
+        botonEliminar.setEnabled(haySeleccion);
+    }
+
+    // ==========================================
+    // CONSULTAR EMPLEADOS
     // ==========================================
 
     private void cargarEmpleados() {
@@ -342,20 +405,22 @@ public class PanelEmpleados extends PanelModulo {
 
         } catch (RuntimeException ex) {
 
+            ex.printStackTrace(System.err);
+
             mostrarError(
-                    "No fue posible cargar los empleados.\n"
-                            + ex.getMessage()
+                    "No fue posible cargar los empleados.\n\n"
+                            + obtenerMensajeError(ex)
             );
         }
     }
 
     // ==========================================
-    // FILTRO DE EMPLEADOS
+    // FILTRAR EMPLEADOS
     // ==========================================
 
     private void filtrarEmpleados() {
 
-        String texto = campoBusqueda.getText()
+        String texto = panelTabla.getTextoBusqueda()
                 .trim()
                 .toLowerCase(Locale.ROOT);
 
@@ -372,54 +437,67 @@ public class PanelEmpleados extends PanelModulo {
                                 || contiene(empleado.getCargo(), texto)
                                 || contiene(empleado.getTelefono(), texto)
                                 || contiene(empleado.getCorreo(), texto)
+                                || contiene(empleado.getDireccion(), texto)
                 )
                 .toList();
 
         actualizarTabla(resultados);
     }
 
-    private boolean contiene(String valor, String texto) {
+    private boolean contiene(
+            String valor,
+            String texto
+    ) {
 
         return valor != null
                 && valor.toLowerCase(Locale.ROOT).contains(texto);
     }
 
     // ==========================================
-    // ACTUALIZACIÓN DE LA TABLA
+    // ACTUALIZAR TABLA
     // ==========================================
 
     private void actualizarTabla(List<IEmpleado> listaEmpleados) {
 
         modeloTabla.setRowCount(0);
 
-        if (listaEmpleados == null) {
-            botonEditar.setEnabled(false);
-            return;
-        }
+        if (listaEmpleados != null) {
 
-        for (IEmpleado empleado : listaEmpleados) {
+            for (IEmpleado empleado : listaEmpleados) {
 
-            if (empleado == null) {
-                continue;
+                if (empleado == null) {
+                    continue;
+                }
+
+                modeloTabla.addRow(new Object[]{
+                        empleado.getIdentificacion(),
+                        empleado.getNombre(),
+                        empleado.getCargo(),
+                        empleado.getTelefono(),
+                        empleado.getCorreo(),
+                        empleado.getDireccion()
+                });
             }
-
-            modeloTabla.addRow(new Object[]{
-                    empleado.getIdentificacion(),
-                    empleado.getNombre(),
-                    empleado.getCargo(),
-                    empleado.getTelefono(),
-                    empleado.getCorreo(),
-                    empleado.getDireccion()
-            });
         }
 
-        tablaEmpleados.getTabla().clearSelection();
-        botonEditar.setEnabled(false);
+        panelTabla.getTablaDatos().limpiarSeleccion();
+
+        actualizarEstadoAcciones();
     }
 
     // ==========================================
     // MENSAJES
     // ==========================================
+
+    private void mostrarAdvertencia(String mensaje) {
+
+        JOptionPane.showMessageDialog(
+                this,
+                mensaje,
+                "Selección requerida",
+                JOptionPane.WARNING_MESSAGE
+        );
+    }
 
     private void mostrarError(String mensaje) {
 
@@ -429,5 +507,18 @@ public class PanelEmpleados extends PanelModulo {
                 "Error",
                 JOptionPane.ERROR_MESSAGE
         );
+    }
+
+    private String obtenerMensajeError(Throwable ex) {
+
+        Throwable causa = ex;
+
+        while (causa.getCause() != null) {
+            causa = causa.getCause();
+        }
+
+        return causa.getMessage() != null
+                ? causa.getMessage()
+                : "Ocurrió un error inesperado.";
     }
 }

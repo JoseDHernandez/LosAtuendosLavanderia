@@ -7,12 +7,10 @@ import com.lavanderia.modelo.interfaces.IDevolucion;
 import com.lavanderia.patrones.facade.ISistemaFacade;
 import com.lavanderia.servicio.interfaces.IGestorAlquiler;
 import com.lavanderia.servicio.interfaces.IGestorDevoluciones;
-import com.lavanderia.vista.componentes.BotonPrincipal;
 import com.lavanderia.vista.componentes.BotonSecundario;
-import com.lavanderia.vista.componentes.CampoBusqueda;
-import com.lavanderia.vista.componentes.TablaDatos;
 import com.lavanderia.vista.estilos.IconosUI;
 import com.lavanderia.vista.paneles.comunes.PanelModulo;
+import com.lavanderia.vista.paneles.comunes.PanelTabla;
 
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
@@ -24,20 +22,20 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
-import static com.lavanderia.vista.estilos.EstilosUI.*;
-
-/** Presenta el módulo de devoluciones y sus acciones en la interfaz Swing. */
 public class PanelDevoluciones extends PanelModulo {
 
     private final ISistemaFacade sistemaFacade;
     private final IGestorAlquiler gestorAlquiler;
     private final IGestorDevoluciones gestorDevoluciones;
 
-    private final CampoBusqueda campoBusqueda;
-    private final TablaDatos tablaDevoluciones;
+    private final PanelTabla panelTabla;
     private final DefaultTableModel modeloTabla;
 
+    private final BotonSecundario botonEditar;
+    private final BotonSecundario botonActualizar;
+
     private List<IDevolucion> devoluciones;
+    private List<IAlquiler> alquileres;
 
     // ==========================================
     // CONSTRUCTOR
@@ -68,13 +66,21 @@ public class PanelDevoluciones extends PanelModulo {
         );
 
         this.devoluciones = new ArrayList<>();
+        this.alquileres = new ArrayList<>();
 
-        this.campoBusqueda = new CampoBusqueda(
+        this.panelTabla = new PanelTabla(
                 "Buscar por devolución, alquiler, cliente o prenda..."
         );
 
-        this.tablaDevoluciones = new TablaDatos();
         this.modeloTabla = crearModeloTabla();
+
+        this.botonEditar = new BotonSecundario(
+                "Editar devolución"
+        );
+
+        this.botonActualizar = new BotonSecundario(
+                "Actualizar"
+        );
 
         inicializarComponentes();
         configurarEventos();
@@ -82,95 +88,99 @@ public class PanelDevoluciones extends PanelModulo {
     }
 
     // ==========================================
-    // INICIALIZACIÓN DE COMPONENTES
+    // INICIALIZACIÓN
     // ==========================================
 
     private void inicializarComponentes() {
 
-        JPanel panelPrincipal = new JPanel(
-                new BorderLayout(0, ESPACIADO_MD)
-        );
-
-        panelPrincipal.setOpaque(false);
-
-        // Barra de herramientas.
-        JPanel panelHerramientas = new JPanel(
-                new BorderLayout()
-        );
-
-        panelHerramientas.setOpaque(false);
-
-        JLabel etiquetaResultados = crearEtiqueta(
-                "Devoluciones registradas",
-                FUENTE_SECCION,
-                TEXTO
-        );
-
-        // Botón nueva devolución.
-        BotonPrincipal botonNuevo =
-                new BotonPrincipal("Nueva devolución");
-
-        botonNuevo.addActionListener(
+        // Acción principal del módulo.
+        configurarAccion(
+                "Nueva devolución",
                 e -> abrirFormularioRegistro()
         );
 
-        // Botón editar.
-        BotonSecundario botonEditar =
-                new BotonSecundario("Editar devolución");
+        // Configuración de la tabla.
+        panelTabla.setModelo(modeloTabla);
+
+        panelTabla.getTablaDatos()
+                .setOrdenamientoHabilitado(true);
+
+        // Acciones secundarias.
+        botonEditar.configurarIcono(
+                IconosUI.editar()
+        );
+
+        botonActualizar.configurarIcono(
+                IconosUI.actualizar()
+        );
+
+        botonEditar.setEnabled(false);
+
+        panelTabla.agregarAccion(botonEditar);
+        panelTabla.agregarAccion(botonActualizar);
+
+        agregarContenido(panelTabla);
+    }
+
+    // ==========================================
+    // CONFIGURACIÓN DE EVENTOS
+    // ==========================================
+
+    private void configurarEventos() {
 
         botonEditar.addActionListener(
                 e -> abrirFormularioEdicion()
         );
 
-        // Botón actualizar tabla.
-        BotonSecundario botonActualizar =
-                new BotonSecundario("Actualizar");
-
         botonActualizar.addActionListener(
                 e -> cargarDevoluciones()
         );
 
-        // Acciones.
-        JPanel panelAcciones = new JPanel(
-                new FlowLayout(
-                        FlowLayout.RIGHT,
-                        ESPACIADO_SM,
-                        0
-                )
+        panelTabla.getCampoBusqueda()
+                .addDocumentListener(new DocumentListener() {
+
+                    @Override
+                    public void insertUpdate(DocumentEvent e) {
+                        filtrarDevoluciones();
+                    }
+
+                    @Override
+                    public void removeUpdate(DocumentEvent e) {
+                        filtrarDevoluciones();
+                    }
+
+                    @Override
+                    public void changedUpdate(DocumentEvent e) {
+                        filtrarDevoluciones();
+                    }
+                });
+
+        JTable tabla = panelTabla.getTablaDatos().getTabla();
+
+        tabla.getSelectionModel().addListSelectionListener(e -> {
+
+            if (!e.getValueIsAdjusting()) {
+                actualizarEstadoAcciones();
+            }
+        });
+
+        // Doble clic para editar.
+        tabla.addMouseListener(
+                new java.awt.event.MouseAdapter() {
+
+                    @Override
+                    public void mouseClicked(
+                            java.awt.event.MouseEvent e
+                    ) {
+
+                        if (e.getClickCount() == 2
+                                && SwingUtilities.isLeftMouseButton(e)) {
+
+                            abrirFormularioEdicion();
+                        }
+                    }
+                }
         );
-
-        panelAcciones.setOpaque(false);
-
-        panelAcciones.add(campoBusqueda);
-        panelAcciones.add(botonActualizar);
-        panelAcciones.add(botonEditar);
-        panelAcciones.add(botonNuevo);
-
-        panelHerramientas.add(
-                etiquetaResultados,
-                BorderLayout.WEST
-        );
-
-        panelHerramientas.add(
-                panelAcciones,
-                BorderLayout.EAST
-        );
-
-        // Tabla.
-        tablaDevoluciones.setModelo(modeloTabla);
-        tablaDevoluciones.setOrdenamientoHabilitado(true);
-
-        panelPrincipal.add(
-                panelHerramientas,
-                BorderLayout.NORTH
-        );
-
-        panelPrincipal.add(
-                tablaDevoluciones,
-                BorderLayout.CENTER
-        );
-
-        agregarContenido(panelPrincipal);
     }
 
     // ==========================================
@@ -195,92 +205,63 @@ public class PanelDevoluciones extends PanelModulo {
             @Override
             public boolean isCellEditable(
                     int fila,
-                    int columna) {
-
+                    int columna
+            ) {
                 return false;
             }
         };
     }
 
     // ==========================================
-    // CONSULTA DE DEVOLUCIONES
+    // CARGAR INFORMACIÓN
     // ==========================================
 
     private void cargarDevoluciones() {
 
         try {
 
-            List<IDevolucion> resultado =
+            List<IAlquiler> alquileresConsultados =
+                    gestorAlquiler.listarTodos();
+
+            List<IDevolucion> devolucionesConsultadas =
                     gestorDevoluciones.listarTodas();
 
-            if (resultado == null) {
+            if (alquileresConsultados == null
+                    || devolucionesConsultadas == null) {
 
                 throw new IllegalStateException(
-                        "El gestor devolvió una lista de devoluciones nula."
+                        "No fue posible obtener la información de devoluciones."
                 );
             }
 
-            devoluciones = new ArrayList<>(resultado);
+            alquileres = new ArrayList<>(
+                    alquileresConsultados
+            );
 
-            // Mantener el texto de búsqueda actual.
+            devoluciones = new ArrayList<>(
+                    devolucionesConsultadas
+            );
+
             filtrarDevoluciones();
 
         } catch (RuntimeException ex) {
 
+            ex.printStackTrace(System.err);
+
             mostrarError(
-                    "No fue posible cargar las devoluciones.\n"
-                            + ex.getMessage()
+                    "No fue posible cargar las devoluciones.\n\n"
+                            + obtenerMensajeError(ex)
             );
         }
     }
 
     // ==========================================
-    // FILTRO DE DEVOLUCIONES
+    // FILTRAR DEVOLUCIONES
     // ==========================================
-
-    private void configurarEventos() {
-
-        campoBusqueda.addDocumentListener(
-                new DocumentListener() {
-
-                    @Override
-                    public void insertUpdate(DocumentEvent e) {
-                        filtrarDevoluciones();
-                    }
-
-                    @Override
-                    public void removeUpdate(DocumentEvent e) {
-                        filtrarDevoluciones();
-                    }
-
-                    @Override
-                    public void changedUpdate(DocumentEvent e) {
-                        filtrarDevoluciones();
-                    }
-                }
-        );
-
-        // Doble clic para editar la devolución.
-        tablaDevoluciones.getTabla().addMouseListener(
-                new java.awt.event.MouseAdapter() {
-
-                    @Override
-                    public void mouseClicked(
-                            java.awt.event.MouseEvent e) {
-
-                        if (e.getClickCount() == 2
-                                && SwingUtilities.isLeftMouseButton(e)) {
-
-                            abrirFormularioEdicion();
-                        }
-                    }
-                }
-        );
-    }
 
     private void filtrarDevoluciones() {
 
-        String texto = campoBusqueda.getText()
+        String texto = panelTabla.getTextoBusqueda()
                 .trim()
                 .toLowerCase(Locale.ROOT);
 
@@ -291,136 +272,122 @@ public class PanelDevoluciones extends PanelModulo {
 
         List<IDevolucion> resultados = devoluciones.stream()
                 .filter(Objects::nonNull)
-                .filter(devolucion -> {
-
-                    IDetalleAlquiler detalle =
-                            devolucion.getDetalleAlquiler();
-
-                    IAlquiler alquiler =
-                            buscarAlquilerPorDetalle(
-                                    detalle.getIdDetalle()
-                            );
-
-                    String consecutivo = alquiler == null
-                            ? ""
-                            : String.valueOf(
-                            alquiler.getNumeroConsecutivo()
-                    );
-
-                    String cliente = alquiler == null
-                            ? ""
-                            : alquiler.getCliente().getNombre();
-
-                    String identificacion = alquiler == null
-                            ? ""
-                            : alquiler.getCliente().getIdentificacion();
-
-                    String referencia =
-                            detalle.getPrenda().getReferencia();
-
-                    return contiene(
-                            String.valueOf(
-                                    devolucion.getIdDevolucion()
-                            ),
-                            texto
-                    )
-                            || contiene(consecutivo, texto)
-                            || contiene(cliente, texto)
-                            || contiene(identificacion, texto)
-                            || contiene(referencia, texto)
-                            || contiene(
-                            String.valueOf(
-                                    devolucion.getFechaDevolucion()
-                            ),
-                            texto
-                    )
-                            || contiene(
-                            String.valueOf(
-                                    devolucion.getEstadoRevision()
-                            ),
-                            texto
-                    )
-                            || contiene(
-                            devolucion.getObservaciones(),
-                            texto
-                    );
-                })
+                .filter(devolucion -> coincideConBusqueda(
+                        devolucion,
+                        texto
+                ))
                 .toList();
 
         actualizarTabla(resultados);
     }
 
+    private boolean coincideConBusqueda(
+            IDevolucion devolucion,
+            String texto
+    ) {
+
+        IDetalleAlquiler detalle =
+                devolucion.getDetalleAlquiler();
+
+        IAlquiler alquiler = detalle == null
+                ? null
+                : buscarAlquilerPorDetalle(
+                detalle.getIdDetalle()
+        );
+
+        String consecutivo = alquiler == null
+                ? ""
+                : String.valueOf(
+                alquiler.getNumeroConsecutivo()
+        );
+
+        String cliente = obtenerNombreCliente(alquiler);
+        String identificacion = obtenerIdentificacionCliente(alquiler);
+        String referencia = obtenerReferencia(detalle);
+
+        return contiene(
+                String.valueOf(devolucion.getIdDevolucion()),
+                texto
+        )
+                || contiene(consecutivo, texto)
+                || contiene(cliente, texto)
+                || contiene(identificacion, texto)
+                || contiene(referencia, texto)
+                || contiene(
+                String.valueOf(devolucion.getFechaDevolucion()),
+                texto
+        )
+                || contiene(
+                String.valueOf(devolucion.getEstadoRevision()),
+                texto
+        )
+                || contiene(devolucion.getObservaciones(), texto);
+    }
+
     private boolean contiene(
             String valor,
-            String texto) {
+            String texto
+    ) {
 
         return valor != null
                 && valor.toLowerCase(Locale.ROOT).contains(texto);
     }
 
     // ==========================================
-    // ACTUALIZACIÓN DE LA TABLA
+    // ACTUALIZAR TABLA
     // ==========================================
 
     private void actualizarTabla(
-            List<IDevolucion> listaDevoluciones) {
+            List<IDevolucion> listaDevoluciones
+    ) {
 
         modeloTabla.setRowCount(0);
 
-        if (listaDevoluciones == null) {
-            return;
-        }
+        if (listaDevoluciones != null) {
 
-        for (IDevolucion devolucion : listaDevoluciones) {
+            for (IDevolucion devolucion : listaDevoluciones) {
 
-            if (devolucion == null
-                    || devolucion.getDetalleAlquiler() == null) {
-                continue;
+                if (devolucion == null) {
+                    continue;
+                }
+
+                IDetalleAlquiler detalle =
+                        devolucion.getDetalleAlquiler();
+
+                IAlquiler alquiler = detalle == null
+                        ? null
+                        : buscarAlquilerPorDetalle(
+                        detalle.getIdDetalle()
+                );
+
+                modeloTabla.addRow(new Object[]{
+                        devolucion.getIdDevolucion(),
+                        obtenerConsecutivo(alquiler),
+                        obtenerReferencia(detalle),
+                        obtenerNombreCliente(alquiler),
+                        devolucion.getFechaDevolucion(),
+                        devolucion.getEstadoRevision(),
+                        devolucion.getObservaciones()
+                });
             }
-
-            IDetalleAlquiler detalle =
-                    devolucion.getDetalleAlquiler();
-
-            IAlquiler alquiler =
-                    buscarAlquilerPorDetalle(
-                            detalle.getIdDetalle()
-                    );
-
-            String consecutivo = alquiler == null
-                    ? "No disponible"
-                    : String.valueOf(
-                    alquiler.getNumeroConsecutivo()
-            );
-
-            String cliente = alquiler == null
-                    ? "No disponible"
-                    : alquiler.getCliente().getNombre();
-
-            String referencia =
-                    detalle.getPrenda().getReferencia();
-
-            modeloTabla.addRow(new Object[]{
-                    devolucion.getIdDevolucion(),
-                    consecutivo,
-                    referencia,
-                    cliente,
-                    devolucion.getFechaDevolucion(),
-                    devolucion.getEstadoRevision(),
-                    devolucion.getObservaciones()
-            });
         }
 
-        tablaDevoluciones.getTabla().clearSelection();
+        panelTabla.getTablaDatos()
+                .getTabla()
+                .clearSelection();
+
+        actualizarEstadoAcciones();
     }
 
     // ==========================================
-    // BÚSQUEDA DEL ALQUILER ASOCIADO
+    // DATOS RELACIONADOS
     // ==========================================
 
-    private IAlquiler buscarAlquilerPorDetalle(long idDetalle) {
+    private IAlquiler buscarAlquilerPorDetalle(
+            long idDetalle
+    ) {
 
-        return gestorAlquiler.listarTodos()
-                .stream()
+        return alquileres.stream()
                 .filter(Objects::nonNull)
                 .filter(alquiler ->
                         alquiler.getDetalles() != null
@@ -437,8 +404,50 @@ public class PanelDevoluciones extends PanelModulo {
                 .orElse(null);
     }
 
+    private String obtenerConsecutivo(IAlquiler alquiler) {
+
+        return alquiler == null
+                ? "No disponible"
+                : String.valueOf(alquiler.getNumeroConsecutivo());
+    }
+
+    private String obtenerNombreCliente(IAlquiler alquiler) {
+
+        return alquiler == null || alquiler.getCliente() == null
+                ? "No disponible"
+                : alquiler.getCliente().getNombre();
+    }
+
+    private String obtenerIdentificacionCliente(IAlquiler alquiler) {
+
+        return alquiler == null || alquiler.getCliente() == null
+                ? ""
+                : alquiler.getCliente().getIdentificacion();
+    }
+
+    private String obtenerReferencia(IDetalleAlquiler detalle) {
+
+        return detalle == null || detalle.getPrenda() == null
+                ? "No disponible"
+                : detalle.getPrenda().getReferencia();
+    }
+
     // ==========================================
-    // APERTURA DEL FORMULARIO
+    // ESTADO DE ACCIONES
+    // ==========================================
+
+    private void actualizarEstadoAcciones() {
+
+        boolean haySeleccion =
+                panelTabla.getTablaDatos()
+                        .getTabla()
+                        .getSelectedRow() != -1;
+
+        botonEditar.setEnabled(haySeleccion);
+    }
+
+    // ==========================================
+    // REGISTRAR DEVOLUCIÓN
     // ==========================================
 
     private void abrirFormularioRegistro() {
@@ -456,6 +465,10 @@ public class PanelDevoluciones extends PanelModulo {
         formulario.mostrar();
     }
 
+    // ==========================================
+    // ACTUALIZAR DEVOLUCIÓN
+    // ==========================================
+
     private void abrirFormularioEdicion() {
 
         IDevolucion devolucion =
@@ -465,7 +478,7 @@ public class PanelDevoluciones extends PanelModulo {
 
             JOptionPane.showMessageDialog(
                     this,
-                    "Seleccione una devolución para editar.",
+                    "Seleccione una devolución para actualizar.",
                     "Selección requerida",
                     JOptionPane.WARNING_MESSAGE
             );
@@ -493,15 +506,16 @@ public class PanelDevoluciones extends PanelModulo {
 
     private IDevolucion obtenerDevolucionSeleccionada() {
 
-        int filaVista =
-                tablaDevoluciones.getFilaSeleccionada();
+        JTable tabla = panelTabla.getTablaDatos().getTabla();
+
+        int filaVista = tabla.getSelectedRow();
 
         if (filaVista == -1) {
             return null;
         }
 
-        int filaModelo = tablaDevoluciones.getTabla()
-                .convertRowIndexToModel(filaVista);
+        int filaModelo =
+                tabla.convertRowIndexToModel(filaVista);
 
         long idDevolucion = Long.parseLong(
                 String.valueOf(
@@ -530,5 +544,18 @@ public class PanelDevoluciones extends PanelModulo {
                 "Error",
                 JOptionPane.ERROR_MESSAGE
         );
+    }
+
+    private String obtenerMensajeError(Throwable ex) {
+
+        Throwable causa = ex;
+
+        while (causa.getCause() != null) {
+            causa = causa.getCause();
+        }
+
+        return causa.getMessage() != null
+                ? causa.getMessage()
+                : "Ocurrió un error inesperado.";
     }
 }

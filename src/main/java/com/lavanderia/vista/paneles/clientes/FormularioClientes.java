@@ -16,7 +16,12 @@ import java.util.Objects;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
-/** Recoge los datos del formulario de clientes y coordina las acciones de esa pantalla. */
+/**
+ * Formulario para registrar y editar clientes.
+ *
+ * Utiliza componentes comunes de interfaz y delega la validación
+ * y las operaciones de negocio a sus respectivas interfaces.
+ */
 public class FormularioClientes extends JDialog {
 
     private final IGestorPersonas gestorPersonas;
@@ -34,10 +39,15 @@ public class FormularioClientes extends JDialog {
 
     private final PanelFormulario formulario;
 
-    // ==========================================
-    // CONSTRUCTOR DE REGISTRO
-    // ==========================================
+    private boolean guardando;
 
+    // ==================================================
+    // CONSTRUCTOR DE REGISTRO
+    // ==================================================
+
+    /**
+     * Crea el formulario para registrar un cliente.
+     */
     public FormularioClientes(
             Window propietario,
             IGestorPersonas gestorPersonas,
@@ -53,10 +63,19 @@ public class FormularioClientes extends JDialog {
         );
     }
 
-    // ==========================================
+    // ==================================================
     // CONSTRUCTOR DE REGISTRO Y EDICIÓN
-    // ==========================================
+    // ==================================================
 
+    /**
+     * Crea el formulario para registrar o editar un cliente.
+     *
+     * @param propietario Ventana propietaria del diálogo.
+     * @param gestorPersonas Gestor de personas.
+     * @param validador Validador de datos personales.
+     * @param cliente Cliente que se editará; null para registrar.
+     * @param alGuardar Acción que se ejecuta después de guardar.
+     */
     public FormularioClientes(
             Window propietario,
             IGestorPersonas gestorPersonas,
@@ -123,14 +142,14 @@ public class FormularioClientes extends JDialog {
         }
     }
 
-    // ==========================================
+    // ==================================================
     // INICIALIZACIÓN
-    // ==========================================
+    // ==================================================
 
     private void inicializarComponentes() {
 
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
-        setResizable(false);
+        setResizable(true);
 
         JPanel panelPrincipal = new JPanel(
                 new BorderLayout(0, ESPACIADO_LG)
@@ -138,6 +157,49 @@ public class FormularioClientes extends JDialog {
 
         panelPrincipal.setBackground(SUPERFICIE);
         panelPrincipal.setBorder(MARGEN_PANEL_ESTANDAR);
+
+        // Encabezado.
+        JPanel panelEncabezado = crearPanelEncabezado();
+
+        // Campos del formulario.
+        configurarCampos();
+
+        // Botones comunes.
+        configurarAcciones();
+
+        panelPrincipal.add(
+                panelEncabezado,
+                BorderLayout.NORTH
+        );
+
+        panelPrincipal.add(
+                formulario,
+                BorderLayout.CENTER
+        );
+
+        setContentPane(panelPrincipal);
+
+        setMinimumSize(
+                new Dimension(ANCHO_DIALOGO + 180, 520)
+        );
+
+        setPreferredSize(
+                new Dimension(ANCHO_DIALOGO + 220, 560)
+        );
+
+        pack();
+        setLocationRelativeTo(getOwner());
+    }
+
+    private JPanel crearPanelEncabezado() {
+
+        JPanel panelEncabezado = new JPanel();
+
+        panelEncabezado.setLayout(
+                new BoxLayout(panelEncabezado, BoxLayout.Y_AXIS)
+        );
+
+        panelEncabezado.setOpaque(false);
 
         JLabel titulo = crearEtiqueta(
                 esEdicion()
@@ -155,53 +217,71 @@ public class FormularioClientes extends JDialog {
                 TEXTO_SECUNDARIO
         );
 
-        JPanel panelEncabezado = new JPanel();
-        panelEncabezado.setLayout(
-                new BoxLayout(panelEncabezado, BoxLayout.Y_AXIS)
-        );
-        panelEncabezado.setOpaque(false);
-
         panelEncabezado.add(titulo);
+
         panelEncabezado.add(
                 Box.createVerticalStrut(ESPACIADO_XS)
         );
+
         panelEncabezado.add(descripcion);
 
-        // Campos.
-        formulario.agregarCampo(campoIdentificacion, 0, 0, 2);
-        formulario.agregarCampo(campoNombre, 1, 0, 2);
-        formulario.agregarCampo(campoDireccion, 2, 0, 2);
-        formulario.agregarCampo(campoTelefono, 3, 0);
-        formulario.agregarCampo(campoCorreo, 3, 1);
-
-        // Acciones.
-        formulario.setAccionGuardar(e -> guardarCliente());
-        formulario.setAccionCancelar(e -> dispose());
-
-        panelPrincipal.add(
-                panelEncabezado,
-                BorderLayout.NORTH
-        );
-
-        panelPrincipal.add(
-                formulario,
-                BorderLayout.CENTER
-        );
-
-        setContentPane(panelPrincipal);
-
-        pack();
-
-        setMinimumSize(
-                new Dimension(ANCHO_DIALOGO + 180, 520)
-        );
-
-        setLocationRelativeTo(getOwner());
+        return panelEncabezado;
     }
 
-    // ==========================================
+    private void configurarCampos() {
+
+        formulario.agregarCampo(
+                campoIdentificacion,
+                0,
+                0,
+                2
+        );
+
+        formulario.agregarCampo(
+                campoNombre,
+                1,
+                0,
+                2
+        );
+
+        formulario.agregarCampo(
+                campoDireccion,
+                2,
+                0,
+                2
+        );
+
+        formulario.agregarCampo(
+                campoTelefono,
+                3,
+                0
+        );
+
+        formulario.agregarCampo(
+                campoCorreo,
+                3,
+                1
+        );
+    }
+
+    private void configurarAcciones() {
+
+        formulario.configurarBotonGuardar(
+                esEdicion()
+                        ? "Guardar cambios"
+                        : "Registrar cliente",
+                e -> guardarCliente()
+        );
+
+        formulario.configurarBotonCancelar(
+                "Cancelar",
+                e -> dispose()
+        );
+    }
+
+    // ==================================================
     // CARGAR DATOS PARA EDICIÓN
-    // ==========================================
+    // ==================================================
 
     private void cargarDatosCliente() {
 
@@ -226,13 +306,20 @@ public class FormularioClientes extends JDialog {
         );
     }
 
-    // ==========================================
+    // ==================================================
     // GUARDAR CLIENTE
-    // ==========================================
+    // ==================================================
 
     private void guardarCliente() {
 
+        if (guardando) {
+            return;
+        }
+
         limpiarErrores();
+
+        guardando = true;
+        formulario.setBotonesHabilitados(false);
 
         try {
 
@@ -242,6 +329,12 @@ public class FormularioClientes extends JDialog {
             ResultadoValidacion<Map<String, String>> resultado =
                     validador.validar(datos);
 
+            if (resultado == null) {
+                throw new IllegalStateException(
+                        "El validador no devolvió un resultado."
+                );
+            }
+
             if (!resultado.esValido()) {
                 mostrarErroresCampos(resultado.getErrores());
                 return;
@@ -250,7 +343,7 @@ public class FormularioClientes extends JDialog {
             Map<String, String> datosValidados =
                     resultado.obtenerValor();
 
-            // Ejecutar la operación correspondiente.
+            // Ejecutar la operación de negocio.
             ICliente clienteGuardado = esEdicion()
                     ? gestorPersonas.actualizarCliente(
                     identificacionOriginal,
@@ -268,24 +361,11 @@ public class FormularioClientes extends JDialog {
 
             mostrarMensajeExito(clienteGuardado);
 
-            // Cerrar el formulario antes de actualizar la vista.
+            // Cerrar el formulario.
             dispose();
 
-            if (alGuardar != null) {
-                try {
-                    alGuardar.run();
-                } catch (RuntimeException ex) {
-                    JOptionPane.showMessageDialog(
-                            getOwner(),
-                            "El cliente se guardó correctamente, "
-                                    + "pero no fue posible actualizar "
-                                    + "la lista.\n"
-                                    + ex.getMessage(),
-                            "Actualización de la vista",
-                            JOptionPane.WARNING_MESSAGE
-                    );
-                }
-            }
+            // Actualizar la vista que abrió el formulario.
+            ejecutarAccionPosterior();
 
         } catch (ValidacionException ex) {
 
@@ -297,21 +377,20 @@ public class FormularioClientes extends JDialog {
 
         } catch (RuntimeException ex) {
 
-            JOptionPane.showMessageDialog(
-                    this,
-                    "No fue posible "
-                            + (esEdicion() ? "actualizar" : "registrar")
-                            + " el cliente.\n"
-                            + ex.getMessage(),
-                    "Error en la operación",
-                    JOptionPane.ERROR_MESSAGE
-            );
+            mostrarErrorOperacion(ex);
+
+        } finally {
+
+            if (isDisplayable()) {
+                guardando = false;
+                formulario.setBotonesHabilitados(true);
+            }
         }
     }
 
-    // ==========================================
+    // ==================================================
     // OBTENER DATOS DEL FORMULARIO
-    // ==========================================
+    // ==================================================
 
     private Map<String, String> obtenerDatosFormulario() {
 
@@ -324,9 +403,36 @@ public class FormularioClientes extends JDialog {
         );
     }
 
-    // ==========================================
+    // ==================================================
+    // ACCIÓN POSTERIOR AL GUARDADO
+    // ==================================================
+
+    private void ejecutarAccionPosterior() {
+
+        if (alGuardar == null) {
+            return;
+        }
+
+        try {
+
+            alGuardar.run();
+
+        } catch (RuntimeException ex) {
+
+            JOptionPane.showMessageDialog(
+                    getOwner(),
+                    "El cliente se guardó correctamente, "
+                            + "pero no fue posible actualizar la lista.\n"
+                            + obtenerMensajeError(ex),
+                    "Actualización de la vista",
+                    JOptionPane.WARNING_MESSAGE
+            );
+        }
+    }
+
+    // ==================================================
     // MENSAJE DE ÉXITO
-    // ==========================================
+    // ==================================================
 
     private void mostrarMensajeExito(ICliente cliente) {
 
@@ -346,19 +452,27 @@ public class FormularioClientes extends JDialog {
         );
     }
 
-    // ==========================================
+    // ==================================================
     // VISUALIZACIÓN DE ERRORES
-    // ==========================================
+    // ==================================================
 
     private void mostrarErroresCampos(
             Map<String, String> errores) {
 
-        boolean hayErrorGeneral = false;
+        if (errores == null || errores.isEmpty()) {
+            return;
+        }
+
+        StringBuilder erroresGenerales = new StringBuilder();
 
         for (Map.Entry<String, String> error : errores.entrySet()) {
 
             String campo = error.getKey();
             String mensaje = error.getValue();
+
+            if (mensaje == null || mensaje.isBlank()) {
+                continue;
+            }
 
             switch (campo) {
 
@@ -377,22 +491,25 @@ public class FormularioClientes extends JDialog {
                 case "correo" ->
                         campoCorreo.mostrarError(mensaje);
 
-                default -> hayErrorGeneral = true;
+                default -> {
+
+                    if (erroresGenerales.length() > 0) {
+                        erroresGenerales.append("\n");
+                    }
+
+                    erroresGenerales.append(mensaje);
+                }
             }
         }
 
-        if (hayErrorGeneral) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    errores.getOrDefault(
-                            "general",
-                            "Se encontraron errores en los datos."
-                    ),
-                    "Datos inválidos",
-                    JOptionPane.WARNING_MESSAGE
+        if (erroresGenerales.length() > 0) {
+            mostrarErrorValidacion(
+                    erroresGenerales.toString()
             );
         }
+
+        revalidate();
+        repaint();
     }
 
     private void limpiarErrores() {
@@ -406,6 +523,10 @@ public class FormularioClientes extends JDialog {
 
     private void mostrarErrorValidacion(String mensaje) {
 
+        if (mensaje == null || mensaje.isBlank()) {
+            return;
+        }
+
         JOptionPane.showMessageDialog(
                 this,
                 mensaje,
@@ -414,14 +535,55 @@ public class FormularioClientes extends JDialog {
         );
     }
 
-    // ==========================================
+    private void mostrarErrorOperacion(RuntimeException ex) {
+
+        JOptionPane.showMessageDialog(
+                this,
+                "No fue posible "
+                        + (esEdicion() ? "actualizar" : "registrar")
+                        + " el cliente.\n"
+                        + obtenerMensajeError(ex),
+                "Error en la operación",
+                JOptionPane.ERROR_MESSAGE
+        );
+    }
+
+    private String obtenerMensajeError(RuntimeException ex) {
+
+        return ex.getMessage() == null
+                || ex.getMessage().isBlank()
+                ? "Ocurrió un error inesperado."
+                : ex.getMessage();
+    }
+
+    // ==================================================
     // UTILIDADES
-    // ==========================================
+    // ==================================================
+
+    private JLabel crearEtiqueta(
+            String texto,
+            Font fuente,
+            Color color) {
+
+        JLabel etiqueta = new JLabel(texto);
+
+        etiqueta.setFont(fuente);
+        etiqueta.setForeground(color);
+
+        return etiqueta;
+    }
 
     private boolean esEdicion() {
         return clienteOriginal != null;
     }
 
+    // ==================================================
+    // ACCESO PÚBLICO
+    // ==================================================
+
+    /**
+     * Muestra el formulario de manera modal.
+     */
     public void mostrar() {
         setVisible(true);
     }

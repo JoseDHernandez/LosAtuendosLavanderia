@@ -11,7 +11,13 @@ import java.awt.event.ActionListener;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
-/** Contenedor común para organizar campos y acciones de un formulario. */
+/**
+ * Contenedor común y reutilizable para organizar los campos
+ * y las acciones de los formularios de la aplicación.
+ *
+ * Utiliza GridBagLayout para distribuir los campos y permite
+ * configurar dinámicamente los botones de guardar y cancelar.
+ */
 public class PanelFormulario extends JPanel {
 
     private final JPanel panelCampos;
@@ -21,10 +27,25 @@ public class PanelFormulario extends JPanel {
     private BotonPrincipal btnGuardar;
     private BotonSecundario btnCancelar;
 
+    // ==========================================
+    // CONSTRUCTORES
+    // ==========================================
+
+    /**
+     * Construye un formulario con botones predeterminados.
+     */
     public PanelFormulario() {
         this("Guardar", null, "Cancelar", null);
     }
 
+    /**
+     * Construye un formulario con acciones configurables.
+     *
+     * @param textoGuardar Texto del botón guardar.
+     * @param accionGuardar Acción del botón guardar.
+     * @param textoCancelar Texto del botón cancelar.
+     * @param accionCancelar Acción del botón cancelar.
+     */
     public PanelFormulario(
             String textoGuardar,
             ActionListener accionGuardar,
@@ -32,13 +53,19 @@ public class PanelFormulario extends JPanel {
             ActionListener accionCancelar) {
 
         panelCampos = new JPanel(new GridBagLayout());
-        panelAcciones = new JPanel(new FlowLayout(
-                FlowLayout.RIGHT, ESPACIADO_SM, 0
-        ));
+
+        panelAcciones = new JPanel(
+                new FlowLayout(
+                        FlowLayout.RIGHT,
+                        ESPACIADO_SM,
+                        0
+                )
+        );
 
         scrollCampos = new JScrollPane(panelCampos);
 
         configurarPanel();
+
         construirContenido(
                 textoGuardar,
                 accionGuardar,
@@ -47,7 +74,12 @@ public class PanelFormulario extends JPanel {
         );
     }
 
+    // ==========================================
+    // CONFIGURACIÓN DEL PANEL
+    // ==========================================
+
     private void configurarPanel() {
+
         setLayout(new BorderLayout(0, ESPACIADO_LG));
         setBackground(SUPERFICIE);
         setOpaque(true);
@@ -61,6 +93,7 @@ public class PanelFormulario extends JPanel {
 
         panelCampos.setBackground(SUPERFICIE);
         panelCampos.setOpaque(true);
+
         panelCampos.setBorder(new EmptyBorder(
                 ESPACIADO_SM,
                 ESPACIADO_SM,
@@ -69,15 +102,25 @@ public class PanelFormulario extends JPanel {
         ));
 
         scrollCampos.setBorder(null);
+
         scrollCampos.getViewport().setBackground(SUPERFICIE);
         scrollCampos.getViewport().setOpaque(true);
+
         scrollCampos.setHorizontalScrollBarPolicy(
                 JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+        );
+
+        scrollCampos.setVerticalScrollBarPolicy(
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED
         );
 
         panelAcciones.setBackground(SUPERFICIE);
         panelAcciones.setOpaque(true);
     }
+
+    // ==========================================
+    // CONSTRUCCIÓN DEL CONTENIDO
+    // ==========================================
 
     private void construirContenido(
             String textoGuardar,
@@ -86,33 +129,34 @@ public class PanelFormulario extends JPanel {
             ActionListener accionCancelar) {
 
         if (textoCancelar != null && !textoCancelar.isBlank()) {
-            btnCancelar = new BotonSecundario(textoCancelar);
-
-            if (accionCancelar != null) {
-                btnCancelar.addActionListener(accionCancelar);
-            }
-
-            panelAcciones.add(btnCancelar);
+            configurarBotonCancelar(
+                    textoCancelar,
+                    accionCancelar
+            );
         }
 
         if (textoGuardar != null && !textoGuardar.isBlank()) {
-            btnGuardar = new BotonPrincipal(textoGuardar);
-
-            if (accionGuardar != null) {
-                btnGuardar.addActionListener(accionGuardar);
-            }
-
-            panelAcciones.add(btnGuardar);
+            configurarBotonGuardar(
+                    textoGuardar,
+                    accionGuardar
+            );
         }
 
         add(scrollCampos, BorderLayout.CENTER);
         add(panelAcciones, BorderLayout.SOUTH);
     }
 
-    // -------------------------
-    // Gestión de campos
-    // -------------------------
+    // ==========================================
+    // GESTIÓN DE CAMPOS
+    // ==========================================
 
+    /**
+     * Agrega un componente ocupando una columna.
+     *
+     * @param componente Componente que se agregará.
+     * @param fila Fila de ubicación.
+     * @param columna Columna de ubicación.
+     */
     public void agregarCampo(
             Component componente,
             int fila,
@@ -121,6 +165,14 @@ public class PanelFormulario extends JPanel {
         agregarCampo(componente, fila, columna, 1);
     }
 
+    /**
+     * Agrega un componente con posibilidad de ocupar varias columnas.
+     *
+     * @param componente Componente que se agregará.
+     * @param fila Fila de ubicación.
+     * @param columna Columna de ubicación.
+     * @param anchoColumnas Cantidad de columnas que ocupará.
+     */
     public void agregarCampo(
             Component componente,
             int fila,
@@ -144,6 +196,7 @@ public class PanelFormulario extends JPanel {
         gbc.gridx = columna;
         gbc.gridy = fila;
         gbc.gridwidth = anchoColumnas;
+
         gbc.weightx = 1.0;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.anchor = GridBagConstraints.NORTHWEST;
@@ -156,32 +209,237 @@ public class PanelFormulario extends JPanel {
         );
 
         panelCampos.add(componente, gbc);
+
         actualizarFormulario();
     }
 
-    public void agregarSeparador(int fila, int columna, int anchoColumnas) {
-        JSeparator separador = new JSeparator();
+    /**
+     * Agrega un separador horizontal.
+     *
+     * @param fila Fila de ubicación.
+     * @param columna Columna de ubicación.
+     * @param anchoColumnas Columnas que ocupará.
+     */
+    public void agregarSeparador(
+            int fila,
+            int columna,
+            int anchoColumnas) {
 
         agregarCampo(
-                separador,
+                new JSeparator(),
                 fila,
                 columna,
                 anchoColumnas
         );
     }
 
+    /**
+     * Elimina todos los componentes del área de campos.
+     */
     public void limpiarCampos() {
+
         panelCampos.removeAll();
+
         actualizarFormulario();
     }
 
+    /**
+     * Habilita o deshabilita los componentes del área de campos.
+     *
+     * @param habilitados Estado de habilitación.
+     */
+    public void setCamposHabilitados(boolean habilitados) {
+
+        cambiarEstadoComponentes(
+                panelCampos,
+                habilitados
+        );
+    }
+
+    /**
+     * Cambia recursivamente el estado de habilitación
+     * de los componentes contenidos en un contenedor.
+     */
+    private void cambiarEstadoComponentes(
+            Container contenedor,
+            boolean habilitados) {
+
+        for (Component componente : contenedor.getComponents()) {
+
+            componente.setEnabled(habilitados);
+
+            if (componente instanceof Container hijo) {
+                cambiarEstadoComponentes(
+                        hijo,
+                        habilitados
+                );
+            }
+        }
+    }
+
+    /**
+     * Retorna el panel interno donde se agregan los campos.
+     */
     public JPanel getPanelCampos() {
         return panelCampos;
     }
 
-    // -------------------------
-    // Gestión de botones
-    // -------------------------
+    /**
+     * Retorna el contenedor desplazable de los campos.
+     */
+    public JScrollPane getScrollCampos() {
+        return scrollCampos;
+    }
+
+    // ==========================================
+    // CONFIGURACIÓN DEL BOTÓN GUARDAR
+    // ==========================================
+
+    /**
+     * Crea o actualiza el botón guardar.
+     *
+     * @param texto Texto del botón.
+     * @param accion Acción asociada.
+     */
+    public void configurarBotonGuardar(
+            String texto,
+            ActionListener accion) {
+
+        if (texto == null || texto.isBlank()) {
+            ocultarBotonGuardar();
+            return;
+        }
+
+        if (btnGuardar == null) {
+
+            btnGuardar = new BotonPrincipal(texto);
+
+            panelAcciones.add(btnGuardar);
+
+        } else {
+
+            btnGuardar.setText(texto);
+        }
+
+        setAccionGuardar(accion);
+
+        btnGuardar.setVisible(true);
+
+        actualizarFormulario();
+    }
+
+    /**
+     * Oculta el botón guardar.
+     */
+    public void ocultarBotonGuardar() {
+
+        if (btnGuardar != null) {
+            btnGuardar.setVisible(false);
+            actualizarFormulario();
+        }
+    }
+
+    /**
+     * Muestra el botón guardar si existe.
+     */
+    public void mostrarBotonGuardar() {
+
+        if (btnGuardar != null) {
+            btnGuardar.setVisible(true);
+            actualizarFormulario();
+        }
+    }
+
+    /**
+     * Elimina el botón guardar.
+     */
+    public void eliminarBotonGuardar() {
+
+        if (btnGuardar != null) {
+
+            panelAcciones.remove(btnGuardar);
+            btnGuardar = null;
+
+            actualizarFormulario();
+        }
+    }
+
+    // ==========================================
+    // CONFIGURACIÓN DEL BOTÓN CANCELAR
+    // ==========================================
+
+    /**
+     * Crea o actualiza el botón cancelar.
+     *
+     * @param texto Texto del botón.
+     * @param accion Acción asociada.
+     */
+    public void configurarBotonCancelar(
+            String texto,
+            ActionListener accion) {
+
+        if (texto == null || texto.isBlank()) {
+            ocultarBotonCancelar();
+            return;
+        }
+
+        if (btnCancelar == null) {
+
+            btnCancelar = new BotonSecundario(texto);
+
+            panelAcciones.add(btnCancelar, 0);
+
+        } else {
+
+            btnCancelar.setText(texto);
+        }
+
+        setAccionCancelar(accion);
+
+        btnCancelar.setVisible(true);
+
+        actualizarFormulario();
+    }
+
+    /**
+     * Oculta el botón cancelar.
+     */
+    public void ocultarBotonCancelar() {
+
+        if (btnCancelar != null) {
+            btnCancelar.setVisible(false);
+            actualizarFormulario();
+        }
+    }
+
+    /**
+     * Muestra el botón cancelar si existe.
+     */
+    public void mostrarBotonCancelar() {
+
+        if (btnCancelar != null) {
+            btnCancelar.setVisible(true);
+            actualizarFormulario();
+        }
+    }
+
+    /**
+     * Elimina el botón cancelar.
+     */
+    public void eliminarBotonCancelar() {
+
+        if (btnCancelar != null) {
+
+            panelAcciones.remove(btnCancelar);
+            btnCancelar = null;
+
+            actualizarFormulario();
+        }
+    }
+
+    // ==========================================
+    // ACCESO A LOS BOTONES
+    // ==========================================
 
     public BotonPrincipal getBotonGuardar() {
         return btnGuardar;
@@ -191,14 +449,37 @@ public class PanelFormulario extends JPanel {
         return btnCancelar;
     }
 
+    public boolean tieneBotonGuardar() {
+        return btnGuardar != null;
+    }
+
+    public boolean tieneBotonCancelar() {
+        return btnCancelar != null;
+    }
+
+    // ==========================================
+    // GESTIÓN DE ACCIONES
+    // ==========================================
+
+    /**
+     * Reemplaza la acción del botón guardar.
+     */
     public void setAccionGuardar(ActionListener accion) {
+
         reemplazarAccion(btnGuardar, accion);
     }
 
+    /**
+     * Reemplaza la acción del botón cancelar.
+     */
     public void setAccionCancelar(ActionListener accion) {
+
         reemplazarAccion(btnCancelar, accion);
     }
 
+    /**
+     * Reemplaza los ActionListener de un botón.
+     */
     private void reemplazarAccion(
             AbstractButton boton,
             ActionListener accion) {
@@ -216,7 +497,11 @@ public class PanelFormulario extends JPanel {
         }
     }
 
+    /**
+     * Habilita o deshabilita ambos botones.
+     */
     public void setBotonesHabilitados(boolean habilitados) {
+
         if (btnGuardar != null) {
             btnGuardar.setEnabled(habilitados);
         }
@@ -226,12 +511,19 @@ public class PanelFormulario extends JPanel {
         }
     }
 
-    // -------------------------
-    // Actualización visual
-    // -------------------------
+    // ==========================================
+    // ACTUALIZACIÓN VISUAL
+    // ==========================================
 
     private void actualizarFormulario() {
+
         panelCampos.revalidate();
         panelCampos.repaint();
+
+        panelAcciones.revalidate();
+        panelAcciones.repaint();
+
+        revalidate();
+        repaint();
     }
 }

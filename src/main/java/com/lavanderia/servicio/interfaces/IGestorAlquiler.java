@@ -15,6 +15,15 @@ import java.util.Optional;
 public interface IGestorAlquiler {
 
     /**
+     * Actualiza un alquiler existente, incluyendo sus fechas,
+     * cliente, empleado y prendas asociadas.
+     *
+     * @param alquiler Alquiler con los datos modificados.
+     * @return Alquiler actualizado.
+     */
+    IAlquiler actualizarAlquiler(IAlquiler alquiler);
+
+    /**
      * Registra un nuevo contrato de alquiler en el sistema validando cliente, empleado, prendas y fechas.
      *
      * @param alquiler Objeto con los datos del alquiler y detalles de prendas.

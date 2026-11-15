@@ -7,10 +7,21 @@ import java.awt.event.KeyEvent;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
-/** Componente visual para solicitar confirmación de una acción. */
+/**
+ * Componente visual para solicitar confirmación de una acción.
+ *
+ * Se adapta al tamaño del mensaje y a las dimensiones de pantalla,
+ * permitiendo mostrar textos extensos sin recortarlos.
+ */
 public class DialogoConfirmacion extends JDialog {
 
     private boolean confirmado = false;
+
+    private JTextArea txtMensaje;
+    private BotonSecundario btnCancelar;
+    private BotonPrincipal btnConfirmar;
+    private JPanel contenido;
+    private JPanel acciones;
 
     public DialogoConfirmacion(
             Window propietario,
@@ -30,15 +41,26 @@ public class DialogoConfirmacion extends JDialog {
     private void configurarVentana() {
 
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+        setBackground(SUPERFICIE);
 
-        setSize(ANCHO_DIALOGO, ALTO_DIALOGO);
+        // El tamaño máximo se limita al área disponible de la pantalla.
+        Dimension pantalla = Toolkit.getDefaultToolkit().getScreenSize();
+
+        int anchoMaximo = Math.max(ANCHO_DIALOGO,
+                pantalla.width - ESPACIADO_XL * 2);
+
+        int altoMaximo = Math.max(ALTO_DIALOGO,
+                pantalla.height - ESPACIADO_XL * 2);
+
         setMinimumSize(new Dimension(
-                ANCHO_DIALOGO,
-                ALTO_DIALOGO
+                Math.min(ANCHO_DIALOGO, anchoMaximo),
+                Math.min(ALTO_DIALOGO, altoMaximo)
         ));
 
-        setResizable(false);
-        setBackground(SUPERFICIE);
+        setSize(ANCHO_DIALOGO, ALTO_DIALOGO);
+
+        // El usuario puede ampliar el diálogo si el contenido lo requiere.
+        setResizable(true);
     }
 
     // ==========================================
@@ -47,9 +69,10 @@ public class DialogoConfirmacion extends JDialog {
 
     private void construirContenido(String mensaje) {
 
-        JPanel contenido = new JPanel(
-                new BorderLayout(0, ESPACIADO_LG)
-        );
+        contenido = new JPanel(new BorderLayout(
+                0,
+                ESPACIADO_LG
+        ));
 
         contenido.setBackground(SUPERFICIE);
 
@@ -62,8 +85,8 @@ public class DialogoConfirmacion extends JDialog {
                 )
         );
 
-        construirMensaje(contenido, mensaje);
-        construirAcciones(contenido);
+        construirMensaje(mensaje);
+        construirAcciones();
 
         setContentPane(contenido);
 
@@ -74,12 +97,9 @@ public class DialogoConfirmacion extends JDialog {
     // MENSAJE
     // ==========================================
 
-    private void construirMensaje(
-            JPanel contenido,
-            String mensaje
-    ) {
+    private void construirMensaje(String mensaje) {
 
-        JTextArea txtMensaje = new JTextArea(
+        txtMensaje = new JTextArea(
                 mensaje == null ? "" : mensaje
         );
 
@@ -95,33 +115,47 @@ public class DialogoConfirmacion extends JDialog {
         txtMensaje.setBorder(null);
         txtMensaje.setOpaque(false);
 
-        contenido.add(txtMensaje, BorderLayout.CENTER);
+        txtMensaje.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        // El scroll permite consultar mensajes extensos sin aumentar
+        // indefinidamente el tamaño de la ventana.
+        JScrollPane scrollMensaje = new JScrollPane(
+                txtMensaje,
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+        );
+
+        scrollMensaje.setBorder(null);
+        scrollMensaje.setOpaque(false);
+        scrollMensaje.getViewport().setOpaque(false);
+
+        scrollMensaje.setMinimumSize(new Dimension(0, 80));
+        scrollMensaje.setPreferredSize(new Dimension(
+                ANCHO_DIALOGO - ESPACIADO_XL * 2,
+                ALTO_DIALOGO - ESPACIADO_XL * 3
+        ));
+
+        contenido.add(scrollMensaje, BorderLayout.CENTER);
     }
 
     // ==========================================
     // BOTONES DE ACCIÓN
     // ==========================================
 
-    private void construirAcciones(JPanel contenido) {
+    private void construirAcciones() {
 
-        JPanel acciones = new JPanel(
-                new FlowLayout(
-                        FlowLayout.RIGHT,
-                        ESPACIADO_SM,
-                        0
-                )
-        );
+        acciones = new JPanel(new FlowLayout(
+                FlowLayout.RIGHT,
+                ESPACIADO_SM,
+                0
+        ));
 
         acciones.setBackground(SUPERFICIE);
 
-        BotonSecundario btnCancelar =
-                new BotonSecundario("Cancelar");
-
-        BotonPrincipal btnConfirmar =
-                new BotonPrincipal("Confirmar");
+        btnCancelar = new BotonSecundario("Cancelar");
+        btnConfirmar = new BotonPrincipal("Confirmar");
 
         btnCancelar.addActionListener(e -> cancelar());
-
         btnConfirmar.addActionListener(e -> confirmar());
 
         acciones.add(btnCancelar);
@@ -165,21 +199,46 @@ public class DialogoConfirmacion extends JDialog {
     // VISUALIZACIÓN
     // ==========================================
 
+    /**
+     * Muestra el diálogo centrado respecto a su ventana propietaria.
+     *
+     * @return true si el usuario confirma; false si cancela o cierra.
+     */
     public boolean mostrarDialogo() {
 
         confirmado = false;
 
         pack();
 
-        setSize(
+        Dimension pantalla = Toolkit.getDefaultToolkit().getScreenSize();
+
+        int ancho = Math.min(
                 ANCHO_DIALOGO,
-                ALTO_DIALOGO
+                pantalla.width - ESPACIADO_XL * 2
+        );
+
+        int alto = Math.min(
+                ALTO_DIALOGO,
+                pantalla.height - ESPACIADO_XL * 2
+        );
+
+        setSize(
+                Math.max(ANCHO_MINIMO, ancho),
+                Math.max(ALTO_MINIMO, alto)
         );
 
         setLocationRelativeTo(getOwner());
 
         setVisible(true);
 
+        return confirmado;
+    }
+
+    // ==========================================
+    // ACCESO AL ESTADO
+    // ==========================================
+
+    public boolean isConfirmado() {
         return confirmado;
     }
 }

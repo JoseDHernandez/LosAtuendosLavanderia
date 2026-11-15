@@ -75,4 +75,11 @@ public interface IGestorPersonas {
             String identificacion,
             Map<String, String> datos
     );
+
+    /**
+     * Eliminar empleado por su identificación
+     *
+     * @param identificacion Identificación del empleado
+     * */
+    void eliminarEmpleado(String identificacion);
 }

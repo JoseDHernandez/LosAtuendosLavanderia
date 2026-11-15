@@ -5,11 +5,18 @@ import com.lavanderia.vista.estilos.EstilosUI;
 
 import javax.swing.*;
 import javax.swing.border.Border;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import java.awt.*;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
-/** Componente reutilizable para ingresar texto. */
+/**
+ * Componente reutilizable para ingresar texto.
+ *
+ * Se adapta al ancho disponible, conserva sus dimensiones verticales
+ * y permite mostrar mensajes de validación sin recortar su contenido.
+ */
 public class CampoTexto extends JPanel {
 
     private final JLabel lblEtiqueta;
@@ -23,7 +30,7 @@ public class CampoTexto extends JPanel {
 
     public CampoTexto(String etiqueta, String placeholder) {
 
-        lblEtiqueta = new JLabel(etiqueta);
+        lblEtiqueta = new JLabel(etiqueta != null ? etiqueta : "");
         txtCampo = new JTextField();
         lblError = new JLabel(" ");
 
@@ -73,6 +80,16 @@ public class CampoTexto extends JPanel {
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         setBackground(SUPERFICIE);
         setOpaque(true);
+
+        // Permite que el componente ocupe el ancho de su contenedor.
+        setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        setMinimumSize(new Dimension(0, 0));
+
+        setMaximumSize(new Dimension(
+                Integer.MAX_VALUE,
+                Integer.MAX_VALUE
+        ));
     }
 
     // ==========================================
@@ -93,6 +110,11 @@ public class CampoTexto extends JPanel {
                         0
                 )
         );
+
+        lblEtiqueta.setMaximumSize(new Dimension(
+                Integer.MAX_VALUE,
+                lblEtiqueta.getPreferredSize().height + ESPACIADO_SM
+        ));
     }
 
     // ==========================================
@@ -107,19 +129,20 @@ public class CampoTexto extends JPanel {
         txtCampo.setCaretColor(PRIMARIO);
         txtCampo.setBorder(bordeNormal);
 
-        txtCampo.setPreferredSize(
-                new Dimension(
-                        ANCHO_CAMPO_MINIMO,
-                        ALTO_CAMPO
-                )
-        );
+        txtCampo.setPreferredSize(new Dimension(
+                ANCHO_CAMPO_MINIMO,
+                ALTO_CAMPO
+        ));
 
-        txtCampo.setMaximumSize(
-                new Dimension(
-                        Integer.MAX_VALUE,
-                        ALTO_CAMPO
-                )
-        );
+        txtCampo.setMinimumSize(new Dimension(
+                0,
+                ALTO_CAMPO
+        ));
+
+        txtCampo.setMaximumSize(new Dimension(
+                Integer.MAX_VALUE,
+                ALTO_CAMPO
+        ));
 
         txtCampo.setAlignmentX(Component.LEFT_ALIGNMENT);
     }
@@ -143,16 +166,20 @@ public class CampoTexto extends JPanel {
                 )
         );
 
-        lblError.setPreferredSize(
-                new Dimension(0, ESPACIADO_LG)
-        );
+        lblError.setPreferredSize(new Dimension(
+                0,
+                ESPACIADO_LG
+        ));
 
-        lblError.setMaximumSize(
-                new Dimension(
-                        Integer.MAX_VALUE,
-                        ESPACIADO_LG
-                )
-        );
+        lblError.setMinimumSize(new Dimension(
+                0,
+                ESPACIADO_LG
+        ));
+
+        lblError.setMaximumSize(new Dimension(
+                Integer.MAX_VALUE,
+                ESPACIADO_LG
+        ));
     }
 
     // ==========================================
@@ -162,23 +189,20 @@ public class CampoTexto extends JPanel {
     private void configurarEventos() {
 
         txtCampo.getDocument().addDocumentListener(
-                new javax.swing.event.DocumentListener() {
+                new DocumentListener() {
 
                     @Override
-                    public void insertUpdate(
-                            javax.swing.event.DocumentEvent e) {
+                    public void insertUpdate(DocumentEvent e) {
                         limpiarError();
                     }
 
                     @Override
-                    public void removeUpdate(
-                            javax.swing.event.DocumentEvent e) {
+                    public void removeUpdate(DocumentEvent e) {
                         limpiarError();
                     }
 
                     @Override
-                    public void changedUpdate(
-                            javax.swing.event.DocumentEvent e) {
+                    public void changedUpdate(DocumentEvent e) {
                         limpiarError();
                     }
                 }
@@ -192,10 +216,14 @@ public class CampoTexto extends JPanel {
     private void configurarPlaceholder(String placeholder) {
 
         if (placeholder != null && !placeholder.isBlank()) {
+
             txtCampo.putClientProperty(
                     "JTextField.placeholderText",
                     placeholder
             );
+
+            txtCampo.getAccessibleContext()
+                    .setAccessibleDescription(placeholder);
         }
     }
 
@@ -235,6 +263,10 @@ public class CampoTexto extends JPanel {
         txtCampo.setBackground(
                 editable ? SUPERFICIE : FONDO
         );
+
+        txtCampo.setForeground(
+                editable ? TEXTO : TEXTO_DESHABILITADO
+        );
     }
 
     @Override
@@ -242,22 +274,28 @@ public class CampoTexto extends JPanel {
 
         super.setEnabled(enabled);
 
-        if (lblEtiqueta != null) {
-            lblEtiqueta.setEnabled(enabled);
+        // Protege la inicialización del componente cuando Swing
+        // invoca setEnabled antes de construir sus controles.
+        if (lblEtiqueta == null || txtCampo == null || lblError == null) {
+            return;
         }
 
-        if (txtCampo != null) {
-            txtCampo.setEnabled(enabled);
-        }
+        lblEtiqueta.setEnabled(enabled);
+        txtCampo.setEnabled(enabled);
+        lblError.setEnabled(enabled);
 
-        if (lblError != null) {
-            lblError.setEnabled(enabled);
+        if (!enabled) {
+            txtCampo.setBackground(FONDO);
+            txtCampo.setForeground(TEXTO_DESHABILITADO);
+        } else if (txtCampo.isEditable()) {
+            txtCampo.setBackground(SUPERFICIE);
+            txtCampo.setForeground(TEXTO);
         }
     }
 
     public void setEtiqueta(String texto) {
 
-        lblEtiqueta.setText(texto);
+        lblEtiqueta.setText(texto != null ? texto : "");
 
         lblEtiqueta.setVisible(
                 texto != null && !texto.isBlank()
@@ -283,6 +321,10 @@ public class CampoTexto extends JPanel {
         lblError.setText(mensaje);
         txtCampo.setBorder(bordeError);
 
+        // Permite que el mensaje de error ocupe varias líneas
+        // si el ancho disponible es reducido.
+        lblError.setToolTipText(mensaje);
+
         revalidate();
         repaint();
     }
@@ -292,6 +334,8 @@ public class CampoTexto extends JPanel {
         tieneError = false;
 
         lblError.setText(" ");
+        lblError.setToolTipText(null);
+
         txtCampo.setBorder(bordeNormal);
 
         revalidate();

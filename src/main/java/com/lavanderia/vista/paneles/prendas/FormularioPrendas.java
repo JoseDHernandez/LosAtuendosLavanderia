@@ -9,9 +9,9 @@ import com.lavanderia.modelo.interfaces.IDisfraz;
 import com.lavanderia.servicio.interfaces.IGestorPrendas;
 import com.lavanderia.validacion.ResultadoValidacion;
 import com.lavanderia.validacion.prenda.IPrendaValidator;
-import com.lavanderia.vista.componentes.BotonPrincipal;
-import com.lavanderia.vista.componentes.BotonSecundario;
+import com.lavanderia.vista.componentes.CampoTexto;
 import com.lavanderia.vista.estilos.IconosUI;
+import com.lavanderia.vista.paneles.comunes.PanelFormulario;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -22,7 +22,6 @@ import java.util.Objects;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
-/** Recoge los datos del formulario de prendas y coordina las acciones de esa pantalla. */
 public class FormularioPrendas extends JDialog {
 
     private enum TipoPrenda {
@@ -51,6 +50,8 @@ public class FormularioPrendas extends JDialog {
     private final IPrenda original;
     private final Runnable alGuardar;
 
+    private boolean guardando;
+
     // ==========================================
     // COMPONENTES GENERALES
     // ==========================================
@@ -58,11 +59,20 @@ public class FormularioPrendas extends JDialog {
     private final JComboBox<TipoPrenda> selectorTipo =
             new JComboBox<>(TipoPrenda.values());
 
-    private final JTextField txtReferencia = new JTextField();
-    private final JTextField txtColor = new JTextField();
-    private final JTextField txtMarca = new JTextField();
-    private final JTextField txtTalla = new JTextField();
-    private final JTextField txtValorAlquiler = new JTextField();
+    private final CampoTexto txtReferencia =
+            new CampoTexto("Referencia", "Referencia única de la prenda");
+
+    private final CampoTexto txtColor =
+            new CampoTexto("Color", "Color de la prenda");
+
+    private final CampoTexto txtMarca =
+            new CampoTexto("Marca", "Marca de la prenda");
+
+    private final CampoTexto txtTalla =
+            new CampoTexto("Talla", "Talla de la prenda");
+
+    private final CampoTexto txtValorAlquiler =
+            new CampoTexto("Valor de alquiler", "Valor en pesos");
 
     // ==========================================
     // COMPONENTES DE VESTIDO
@@ -71,28 +81,40 @@ public class FormularioPrendas extends JDialog {
     private final JComboBox<Boolean> cbPedreria =
             new JComboBox<>(new Boolean[]{false, true});
 
-    private final JTextField txtLargo = new JTextField();
-    private final JTextField txtNumeroPiezas = new JTextField();
+    private final CampoTexto txtLargo =
+            new CampoTexto("Largo", "Largo del vestido");
+
+    private final CampoTexto txtNumeroPiezas =
+            new CampoTexto("Número de piezas", "Cantidad de piezas");
 
     // ==========================================
     // COMPONENTES DE TRAJE
     // ==========================================
 
-    private final JTextField txtTipoTraje = new JTextField();
-    private final JTextField txtTipoComplemento = new JTextField();
+    private final CampoTexto txtTipoTraje =
+            new CampoTexto("Tipo de traje", "Ej. formal, smoking...");
+
+    private final CampoTexto txtTipoComplemento =
+            new CampoTexto("Tipo de complemento", "Ej. corbata, chaleco...");
 
     // ==========================================
     // COMPONENTES DE DISFRAZ
     // ==========================================
 
-    private final JTextField txtNombreDisfraz = new JTextField();
+    private final CampoTexto txtNombreDisfraz =
+            new CampoTexto("Nombre", "Nombre del disfraz");
 
     // ==========================================
     // CONTENEDORES
     // ==========================================
 
     private final CardLayout cardLayout = new CardLayout();
-    private final JPanel panelEspecifico = new JPanel(cardLayout);
+
+    private final JPanel panelEspecifico =
+            new JPanel(cardLayout);
+
+    private final PanelFormulario formulario =
+            new PanelFormulario();
 
     // ==========================================
     // CONSTRUCTORES
@@ -128,7 +150,6 @@ public class FormularioPrendas extends JDialog {
         this.alGuardar = alGuardar;
 
         configurarVentana();
-        configurarCampos();
         construirFormulario();
         configurarEventos();
 
@@ -140,61 +161,15 @@ public class FormularioPrendas extends JDialog {
     }
 
     // ==========================================
-    // CONFIGURACIÓN
+    // CONFIGURACIÓN DE VENTANA
     // ==========================================
 
     private void configurarVentana() {
 
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
-        setSize(620, 690);
+        setSize(650, 760);
         setMinimumSize(new Dimension(560, 620));
         setResizable(true);
-    }
-
-    private void configurarCampos() {
-
-        configurarCampo(txtReferencia);
-        configurarCampo(txtColor);
-        configurarCampo(txtMarca);
-        configurarCampo(txtTalla);
-        configurarCampo(txtValorAlquiler);
-
-        configurarCampo(txtLargo);
-        configurarCampo(txtNumeroPiezas);
-
-        configurarCampo(txtTipoTraje);
-        configurarCampo(txtTipoComplemento);
-
-        configurarCampo(txtNombreDisfraz);
-
-        txtValorAlquiler.setToolTipText(
-                "Ingresa el valor de alquiler en pesos."
-        );
-
-        txtNumeroPiezas.setToolTipText(
-                "Ingresa la cantidad de piezas del vestido."
-        );
-    }
-
-    private void configurarCampo(JTextField campo) {
-
-        campo.setFont(FUENTE_NORMAL);
-        campo.setForeground(TEXTO);
-        campo.setBackground(SUPERFICIE);
-
-        campo.setBorder(BorderFactory.createCompoundBorder(
-                BORDE_SIMPLE,
-                BorderFactory.createEmptyBorder(
-                        ESPACIADO_SM,
-                        ESPACIADO_SM,
-                        ESPACIADO_SM,
-                        ESPACIADO_SM
-                )
-        ));
-
-        campo.setPreferredSize(
-                new Dimension(200, ALTO_CAMPO)
-        );
     }
 
     // ==========================================
@@ -217,82 +192,65 @@ public class FormularioPrendas extends JDialog {
                 MARGEN_PANEL
         ));
 
-        JPanel encabezado = crearEncabezado();
+        construirCampos();
 
-        JPanel campos = new JPanel();
-        campos.setOpaque(false);
-        campos.setLayout(new BoxLayout(
-                campos,
-                BoxLayout.Y_AXIS
-        ));
-
-        JPanel generales = crearSeccion(
-                "Información general"
+        formulario.configurarBotonGuardar(
+                original == null
+                        ? "Registrar prenda"
+                        : "Guardar cambios",
+                e -> guardar()
         );
 
-        agregarCampo(generales, "Tipo de prenda", selectorTipo);
-        agregarCampo(generales, "Referencia", txtReferencia);
-        agregarCampo(generales, "Color", txtColor);
-        agregarCampo(generales, "Marca", txtMarca);
-        agregarCampo(generales, "Talla", txtTalla);
-        agregarCampo(generales, "Valor de alquiler", txtValorAlquiler);
-
-        JPanel vestidos = crearSeccion(
-                "Características del vestido"
+        formulario.configurarBotonCancelar(
+                "Cancelar",
+                e -> dispose()
         );
 
-        agregarCampo(vestidos, "Tiene pedrería", cbPedreria);
-        agregarCampo(vestidos, "Largo", txtLargo);
-        agregarCampo(vestidos, "Número de piezas", txtNumeroPiezas);
+        formulario.getBotonGuardar()
+                .configurarIcono(IconosUI.guardar());
 
-        JPanel trajes = crearSeccion(
-                "Características del traje"
+        formulario.getBotonCancelar()
+                .configurarIcono(IconosUI.cancelar());
+
+        getRootPane().setDefaultButton(
+                formulario.getBotonGuardar()
         );
 
-        agregarCampo(trajes, "Tipo de traje", txtTipoTraje);
-        agregarCampo(trajes, "Tipo de complemento", txtTipoComplemento);
-
-        JPanel disfraces = crearSeccion(
-                "Características del disfraz"
-        );
-
-        agregarCampo(disfraces, "Nombre", txtNombreDisfraz);
-
-        panelEspecifico.add(
-                vestidos,
-                TipoPrenda.VESTIDO.name()
-        );
-
-        panelEspecifico.add(
-                trajes,
-                TipoPrenda.TRAJE.name()
-        );
-
-        panelEspecifico.add(
-                disfraces,
-                TipoPrenda.DISFRAZ.name()
-        );
-
-        panelEspecifico.setOpaque(false);
-
-        campos.add(generales);
-        campos.add(Box.createVerticalStrut(ESPACIADO_MD));
-        campos.add(panelEspecifico);
-
-        JScrollPane scroll = new JScrollPane(campos);
-
-        scroll.setBorder(null);
-        scroll.setOpaque(false);
-        scroll.getViewport().setOpaque(false);
-        scroll.getVerticalScrollBar().setUnitIncrement(16);
-
-        JPanel acciones = crearPanelAcciones();
-
-        principal.add(encabezado, BorderLayout.NORTH);
-        principal.add(scroll, BorderLayout.CENTER);
-        principal.add(acciones, BorderLayout.SOUTH);
+        principal.add(crearEncabezado(), BorderLayout.NORTH);
+        principal.add(formulario, BorderLayout.CENTER);
 
         setContentPane(principal);
+    }
+
+    private void construirCampos() {
+
+        int fila = 0;
+
+        formulario.agregarCampo(
+                crearTituloSeccion("Información general"),
+                fila++,
+                0
+        );
+
+        formulario.agregarCampo(
+                crearCampoCombo("Tipo de prenda", selectorTipo),
+                fila++,
+                0
+        );
+
+        formulario.agregarCampo(txtReferencia, fila++, 0);
+        formulario.agregarCampo(txtColor, fila++, 0);
+        formulario.agregarCampo(txtMarca, fila++, 0);
+        formulario.agregarCampo(txtTalla, fila++, 0);
+        formulario.agregarCampo(txtValorAlquiler, fila++, 0);
+
+        construirSeccionesEspecificas();
+
+        formulario.agregarSeparador(fila++, 0, 1);
+
+        formulario.agregarCampo(panelEspecifico, fila, 0);
+
+        panelEspecifico.setOpaque(false);
     }
 
     // ==========================================
@@ -302,12 +260,14 @@ public class FormularioPrendas extends JDialog {
     private JPanel crearEncabezado() {
 
         JPanel panel = new JPanel();
-        panel.setOpaque(false);
 
         panel.setLayout(new BoxLayout(
                 panel,
                 BoxLayout.Y_AXIS
         ));
+
+        panel.setBackground(FONDO);
+        panel.setOpaque(true);
 
         JLabel titulo = new JLabel(
                 original == null
@@ -336,103 +296,133 @@ public class FormularioPrendas extends JDialog {
     }
 
     // ==========================================
-    // SECCIONES Y CAMPOS
+    // SECCIONES ESPECÍFICAS
     // ==========================================
 
-    private JPanel crearSeccion(String titulo) {
+    private void construirSeccionesEspecificas() {
 
-        JPanel panel = new JPanel(new GridBagLayout());
+        JPanel vestidos = crearPanelEspecifico(
+                "Características del vestido"
+        );
+
+        vestidos.add(
+                crearCampoCombo("Tiene pedrería", cbPedreria)
+        );
+
+        vestidos.add(txtLargo);
+        vestidos.add(txtNumeroPiezas);
+
+        JPanel trajes = crearPanelEspecifico(
+                "Características del traje"
+        );
+
+        trajes.add(txtTipoTraje);
+        trajes.add(txtTipoComplemento);
+
+        JPanel disfraces = crearPanelEspecifico(
+                "Características del disfraz"
+        );
+
+        disfraces.add(txtNombreDisfraz);
+
+        panelEspecifico.add(
+                vestidos,
+                TipoPrenda.VESTIDO.name()
+        );
+
+        panelEspecifico.add(
+                trajes,
+                TipoPrenda.TRAJE.name()
+        );
+
+        panelEspecifico.add(
+                disfraces,
+                TipoPrenda.DISFRAZ.name()
+        );
+    }
+
+    private JPanel crearPanelEspecifico(String titulo) {
+
+        JPanel panel = new JPanel();
+
+        panel.setLayout(new BoxLayout(
+                panel,
+                BoxLayout.Y_AXIS
+        ));
 
         panel.setBackground(SUPERFICIE);
+        panel.setOpaque(true);
 
         panel.setBorder(BorderFactory.createCompoundBorder(
                 BORDE_PANEL,
                 new EmptyBorder(
-                        ESPACIADO_SM,
                         ESPACIADO_MD,
-                        ESPACIADO_SM,
+                        ESPACIADO_MD,
+                        ESPACIADO_MD,
                         ESPACIADO_MD
                 )
         ));
 
+        panel.add(crearTituloSeccion(titulo));
+        panel.add(Box.createVerticalStrut(ESPACIADO_SM));
+
         return panel;
     }
 
-    private void agregarCampo(
-            JPanel panel,
+    private JLabel crearTituloSeccion(String texto) {
+
+        JLabel etiqueta = new JLabel(texto);
+
+        etiqueta.setFont(FUENTE_SUBTITULO);
+        etiqueta.setForeground(TEXTO);
+
+        etiqueta.setBorder(new EmptyBorder(
+                ESPACIADO_XS,
+                0,
+                ESPACIADO_SM,
+                0
+        ));
+
+        return etiqueta;
+    }
+
+    private JPanel crearCampoCombo(
             String etiqueta,
-            JComponent componente
+            JComboBox<?> combo
     ) {
 
-        GridBagConstraints gbc = new GridBagConstraints();
+        JPanel panel = new JPanel();
 
-        gbc.insets = new Insets(
-                ESPACIADO_XS,
-                ESPACIADO_SM,
-                ESPACIADO_XS,
-                ESPACIADO_SM
-        );
+        panel.setLayout(new BoxLayout(
+                panel,
+                BoxLayout.Y_AXIS
+        ));
 
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.anchor = GridBagConstraints.CENTER;
-
-        int fila = panel.getComponentCount() / 2;
+        panel.setBackground(SUPERFICIE);
+        panel.setOpaque(true);
 
         JLabel label = new JLabel(etiqueta);
+
         label.setFont(FUENTE_ETIQUETA);
         label.setForeground(TEXTO);
 
-        gbc.gridx = 0;
-        gbc.gridy = fila;
-        gbc.weightx = 0.35;
+        combo.setFont(FUENTE_NORMAL);
+        combo.setBackground(SUPERFICIE);
+        combo.setForeground(TEXTO);
 
-        panel.add(label, gbc);
-
-        gbc.gridx = 1;
-        gbc.weightx = 0.65;
-
-        panel.add(componente, gbc);
-    }
-
-    // ==========================================
-    // BOTONES
-    // ==========================================
-
-    private JPanel crearPanelAcciones() {
-
-        JPanel panel = new JPanel(new FlowLayout(
-                FlowLayout.RIGHT,
-                ESPACIADO_SM,
-                0
+        combo.setPreferredSize(new Dimension(
+                ANCHO_CAMPO_MINIMO,
+                ALTO_CAMPO
         ));
 
-        panel.setOpaque(false);
-        panel.setBorder(new EmptyBorder(
-                ESPACIADO_MD,
-                0,
-                0,
-                0
+        combo.setMaximumSize(new Dimension(
+                Integer.MAX_VALUE,
+                ALTO_CAMPO
         ));
 
-        BotonSecundario btnCancelar =
-                new BotonSecundario("Cancelar");
-
-        btnCancelar.configurarIcono(IconosUI.cancelar());
-        btnCancelar.addActionListener(e -> dispose());
-
-        BotonPrincipal btnGuardar = new BotonPrincipal(
-                original == null
-                        ? "Registrar prenda"
-                        : "Guardar cambios"
-        );
-
-        btnGuardar.configurarIcono(IconosUI.guardar());
-        btnGuardar.addActionListener(e -> guardar());
-
-        panel.add(btnCancelar);
-        panel.add(btnGuardar);
-
-        getRootPane().setDefaultButton(btnGuardar);
+        panel.add(label);
+        panel.add(Box.createVerticalStrut(ESPACIADO_SM));
+        panel.add(combo);
 
         return panel;
     }
@@ -520,15 +510,11 @@ public class FormularioPrendas extends JDialog {
 
         Map<String, String> datos = new HashMap<>();
 
-        datos.put("referencia", txtReferencia.getText().trim());
-        datos.put("color", txtColor.getText().trim());
-        datos.put("marca", txtMarca.getText().trim());
-        datos.put("talla", txtTalla.getText().trim());
-
-        datos.put(
-                "valorAlquiler",
-                txtValorAlquiler.getText().trim()
-        );
+        datos.put("referencia", txtReferencia.getText());
+        datos.put("color", txtColor.getText());
+        datos.put("marca", txtMarca.getText());
+        datos.put("talla", txtTalla.getText());
+        datos.put("valorAlquiler", txtValorAlquiler.getText());
 
         // El estado se establece automáticamente.
         datos.put(
@@ -548,31 +534,28 @@ public class FormularioPrendas extends JDialog {
                     String.valueOf(cbPedreria.getSelectedItem())
             );
 
-            datos.put("largo", txtLargo.getText().trim());
+            datos.put("largo", txtLargo.getText());
 
             datos.put(
                     "numeroPiezas",
-                    txtNumeroPiezas.getText().trim()
+                    txtNumeroPiezas.getText()
             );
 
         } else if (tipo == TipoPrenda.TRAJE) {
 
             datos.put(
                     "tipoTraje",
-                    txtTipoTraje.getText().trim()
+                    txtTipoTraje.getText()
             );
 
             datos.put(
                     "tipoComplemento",
-                    txtTipoComplemento.getText().trim()
+                    txtTipoComplemento.getText()
             );
 
         } else if (tipo == TipoPrenda.DISFRAZ) {
 
-            datos.put(
-                    "nombre",
-                    txtNombreDisfraz.getText().trim()
-            );
+            datos.put("nombre", txtNombreDisfraz.getText());
         }
 
         return datos;
@@ -583,6 +566,10 @@ public class FormularioPrendas extends JDialog {
     // ==========================================
 
     private void guardar() {
+
+        if (guardando) {
+            return;
+        }
 
         TipoPrenda tipo =
                 (TipoPrenda) selectorTipo.getSelectedItem();
@@ -595,9 +582,12 @@ public class FormularioPrendas extends JDialog {
             return;
         }
 
-        Map<String, String> datos = obtenerDatos();
+        guardando = true;
+        formulario.setBotonesHabilitados(false);
 
         try {
+
+            Map<String, String> datos = obtenerDatos();
 
             ResultadoValidacion<Map<String, String>> resultado =
                     validarDatos(tipo, datos);
@@ -607,7 +597,6 @@ public class FormularioPrendas extends JDialog {
                 return;
             }
 
-            // Utilizar los datos normalizados por el validador.
             Map<String, String> datosValidados =
                     resultado.obtenerValor();
 
@@ -631,6 +620,14 @@ public class FormularioPrendas extends JDialog {
                             : ex.getMessage(),
                     JOptionPane.ERROR_MESSAGE
             );
+
+        } finally {
+
+            guardando = false;
+
+            if (isDisplayable()) {
+                formulario.setBotonesHabilitados(true);
+            }
         }
     }
 
@@ -675,8 +672,7 @@ public class FormularioPrendas extends JDialog {
             Map<String, String> datos
     ) {
 
-        String referenciaActual =
-                original.getReferencia();
+        String referenciaActual = original.getReferencia();
 
         switch (tipo) {
 

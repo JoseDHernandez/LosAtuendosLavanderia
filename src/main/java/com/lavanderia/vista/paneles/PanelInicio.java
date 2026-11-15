@@ -3,9 +3,7 @@ package com.lavanderia.vista.paneles;
 
 import com.lavanderia.modelo.enums.EstadoAlquiler;
 import com.lavanderia.modelo.enums.EstadoSolicitud;
-
 import com.lavanderia.patrones.facade.ISistemaFacade;
-
 import com.lavanderia.vista.estilos.IconosUI;
 import com.lavanderia.vista.interfaces.IModuloVista;
 
@@ -13,12 +11,22 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import java.awt.*;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
+import java.util.concurrent.ExecutionException;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
+/**
+ * Panel principal del sistema Los Atuendos.
+ *
+ * Presenta los indicadores generales del negocio y una introducción
+ * a los módulos disponibles. Su distribución se adapta al ancho
+ * de la ventana y las consultas se ejecutan fuera del EDT.
+ */
 public class PanelInicio extends JPanel implements IModuloVista {
 
     // ==========================================
@@ -31,6 +39,11 @@ public class PanelInicio extends JPanel implements IModuloVista {
     private JLabel lblAlquileresActivos;
     private JLabel lblTotalClientes;
     private JLabel lblPendientesLavanderia;
+
+    private JPanel panelIndicadores;
+    private JPanel contenido;
+
+    private SwingWorker<Indicadores, Void> tareaIndicadores;
 
     // ==========================================
     // CONSTANTES VISUALES
@@ -54,11 +67,18 @@ public class PanelInicio extends JPanel implements IModuloVista {
     private static final Color COLOR_NARANJA =
             new Color(157, 105, 43);
 
+    private static final Color COLOR_FECHA =
+            new Color(216, 228, 235);
+
     private static final Font FUENTE_INDICADOR =
-            new Font(FUENTE_PRINCIPAL, Font.BOLD, 36);
+            new Font(FUENTE_PRINCIPAL, Font.BOLD, 32);
 
     private static final Font FUENTE_TARJETA =
             new Font(FUENTE_PRINCIPAL, Font.BOLD, 13);
+
+    private static final int ESPACIO_CONTENIDO = ESPACIADO_LG;
+    private static final int ANCHO_TARJETA_MINIMO = 220;
+    private static final int ALTO_TARJETA = 150;
 
     // ==========================================
     // CONSTRUCTOR
@@ -66,21 +86,32 @@ public class PanelInicio extends JPanel implements IModuloVista {
 
     public PanelInicio(ISistemaFacade sistemaFacade) {
 
+        if (sistemaFacade == null) {
+            throw new IllegalArgumentException(
+                    "La fachada del sistema no puede ser nula."
+            );
+        }
+
         this.sistemaFacade = sistemaFacade;
 
         configurarPanel();
         inicializarComponentes();
+        configurarAdaptabilidad();
+
         actualizarIndicadores();
     }
 
     // ==========================================
-    // CONFIGURACIÓN
+    // CONFIGURACIÓN GENERAL
     // ==========================================
 
     private void configurarPanel() {
 
         setLayout(new BorderLayout());
         setBackground(FONDO);
+        setOpaque(true);
+
+        setMinimumSize(new Dimension(0, 0));
     }
 
     // ==========================================
@@ -89,55 +120,120 @@ public class PanelInicio extends JPanel implements IModuloVista {
 
     private void inicializarComponentes() {
 
-        JPanel contenido = new JPanel();
+        contenido = new JPanel();
 
         contenido.setLayout(
                 new BoxLayout(contenido, BoxLayout.Y_AXIS)
         );
 
         contenido.setBackground(FONDO);
-
         contenido.setBorder(
-                new EmptyBorder(25, 28, 28, 28)
+                new EmptyBorder(
+                        ESPACIADO_LG,
+                        ESPACIADO_LG,
+                        ESPACIADO_LG,
+                        ESPACIADO_LG
+                )
         );
 
-        // Encabezado
+        contenido.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        // Encabezado principal.
         contenido.add(crearEncabezado());
+        contenido.add(Box.createVerticalStrut(ESPACIADO_LG));
 
-        contenido.add(
-                Box.createVerticalStrut(25)
-        );
-
-        // Título de indicadores
+        // Título de los indicadores.
         contenido.add(crearTituloSeccion(
                 "Resumen general",
                 "Indicadores principales del negocio"
         ));
 
-        contenido.add(
-                Box.createVerticalStrut(14)
-        );
+        contenido.add(Box.createVerticalStrut(ESPACIADO_MD));
 
-        // Tarjetas
-        contenido.add(crearPanelIndicadores());
+        // Tarjetas de indicadores.
+        panelIndicadores = crearPanelIndicadores();
+        contenido.add(panelIndicadores);
 
-        contenido.add(
-                Box.createVerticalStrut(25)
-        );
+        contenido.add(Box.createVerticalStrut(ESPACIADO_LG));
 
-        // Información inferior
+        // Información complementaria.
         contenido.add(crearPanelInformativo());
 
-        JScrollPane scroll = new JScrollPane(contenido);
+        JScrollPane scroll = new JScrollPane(
+                contenido,
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+        );
 
         scroll.setBorder(null);
         scroll.setBackground(FONDO);
-
         scroll.getViewport().setBackground(FONDO);
 
         scroll.getVerticalScrollBar().setUnitIncrement(16);
 
+        // El contenido se ajusta al ancho del área visible.
+        scroll.getViewport().addComponentListener(new ComponentAdapter() {
+
+            @Override
+            public void componentResized(ComponentEvent e) {
+                actualizarDistribucionTarjetas();
+            }
+        });
+
         add(scroll, BorderLayout.CENTER);
+    }
+
+    // ==========================================
+    // ADAPTABILIDAD
+    // ==========================================
+
+    private void configurarAdaptabilidad() {
+
+        addComponentListener(new ComponentAdapter() {
+
+            @Override
+            public void componentResized(ComponentEvent e) {
+                actualizarDistribucionTarjetas();
+            }
+        });
+    }
+
+    /**
+     * Cambia la cantidad de columnas según el ancho disponible.
+     *
+     * Cuatro columnas para ventanas amplias.
+     * Dos columnas para espacios intermedios.
+     * Una columna para ventanas estrechas.
+     */
+    private void actualizarDistribucionTarjetas() {
+
+        if (panelIndicadores == null) {
+            return;
+        }
+
+        int ancho = panelIndicadores.getParent() != null
+                ? panelIndicadores.getParent().getWidth()
+                : getWidth();
+
+        if (ancho <= 0) {
+            return;
+        }
+
+        int columnas = Math.max(
+                1,
+                Math.min(4, ancho / ANCHO_TARJETA_MINIMO)
+        );
+
+        GridLayout layout = (GridLayout) panelIndicadores.getLayout();
+
+        if (layout.getColumns() != columnas) {
+
+            layout.setColumns(columnas);
+            layout.setRows(0);
+
+            panelIndicadores.revalidate();
+            panelIndicadores.repaint();
+        }
     }
 
     // ==========================================
@@ -146,27 +242,30 @@ public class PanelInicio extends JPanel implements IModuloVista {
 
     private JPanel crearEncabezado() {
 
-        JPanel encabezado = new JPanel(
-                new BorderLayout()
-        );
+        JPanel encabezado = new JPanel(new BorderLayout(
+                ESPACIADO_MD,
+                ESPACIADO_SM
+        ));
 
         encabezado.setBackground(COLOR_ENCABEZADO);
 
         encabezado.setBorder(
-                new EmptyBorder(28, 30, 28, 30)
+                new EmptyBorder(
+                        ESPACIADO_LG,
+                        ESPACIADO_LG,
+                        ESPACIADO_LG,
+                        ESPACIADO_LG
+                )
         );
 
         JPanel textos = new JPanel();
 
         textos.setOpaque(false);
-
         textos.setLayout(
                 new BoxLayout(textos, BoxLayout.Y_AXIS)
         );
 
-        JLabel etiqueta = new JLabel(
-                "PANEL DE ADMINISTRACIÓN"
-        );
+        JLabel etiqueta = new JLabel("PANEL DE ADMINISTRACIÓN");
 
         etiqueta.setFont(
                 new Font(FUENTE_PRINCIPAL, Font.BOLD, 11)
@@ -187,30 +286,19 @@ public class PanelInicio extends JPanel implements IModuloVista {
         bienvenida.setForeground(Color.WHITE);
 
         JLabel descripcion = new JLabel(
-                "Gestiona el inventario, los alquileres y la lavandería."
+                "<html>Gestiona el inventario, los alquileres "
+                        + "y la lavandería.</html>"
         );
 
         descripcion.setFont(FUENTE_NORMAL);
-
-        descripcion.setForeground(
-                new Color(216, 228, 235)
-        );
+        descripcion.setForeground(COLOR_FECHA);
 
         textos.add(etiqueta);
-
-        textos.add(
-                Box.createVerticalStrut(8)
-        );
-
+        textos.add(Box.createVerticalStrut(ESPACIADO_SM));
         textos.add(bienvenida);
-
-        textos.add(
-                Box.createVerticalStrut(7)
-        );
-
+        textos.add(Box.createVerticalStrut(ESPACIADO_XS));
         textos.add(descripcion);
 
-        // Fecha actual
         JLabel fecha = new JLabel(
                 LocalDate.now().format(
                         DateTimeFormatter.ofPattern(
@@ -220,22 +308,29 @@ public class PanelInicio extends JPanel implements IModuloVista {
                 )
         );
 
-        fecha.setForeground(
-                new Color(216, 228, 235)
-        );
-
+        fecha.setForeground(COLOR_FECHA);
         fecha.setFont(FUENTE_PEQUENA);
-
         fecha.setHorizontalAlignment(SwingConstants.RIGHT);
+        fecha.setVerticalAlignment(SwingConstants.TOP);
+
+        JPanel panelFecha = new JPanel(new FlowLayout(
+                FlowLayout.RIGHT,
+                0,
+                0
+        ));
+
+        panelFecha.setOpaque(false);
+        panelFecha.add(fecha);
 
         encabezado.add(textos, BorderLayout.CENTER);
-        encabezado.add(fecha, BorderLayout.EAST);
-
-        encabezado.setMaximumSize(
-                new Dimension(Integer.MAX_VALUE, 145)
-        );
+        encabezado.add(panelFecha, BorderLayout.EAST);
 
         encabezado.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        encabezado.setMaximumSize(new Dimension(
+                Integer.MAX_VALUE,
+                Integer.MAX_VALUE
+        ));
 
         return encabezado;
     }
@@ -252,7 +347,6 @@ public class PanelInicio extends JPanel implements IModuloVista {
         JPanel panel = new JPanel();
 
         panel.setOpaque(false);
-
         panel.setLayout(
                 new BoxLayout(panel, BoxLayout.Y_AXIS)
         );
@@ -269,12 +363,11 @@ public class PanelInicio extends JPanel implements IModuloVista {
                 TEXTO_SECUNDARIO
         );
 
+        lblTitulo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        lblDescripcion.setAlignmentX(Component.LEFT_ALIGNMENT);
+
         panel.add(lblTitulo);
-
-        panel.add(
-                Box.createVerticalStrut(4)
-        );
-
+        panel.add(Box.createVerticalStrut(ESPACIADO_XS));
         panel.add(lblDescripcion);
 
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -289,14 +382,15 @@ public class PanelInicio extends JPanel implements IModuloVista {
     private JPanel crearPanelIndicadores() {
 
         JPanel indicadores = new JPanel(
-                new GridLayout(1, 4, 15, 0)
+                new GridLayout(0, 4, ESPACIADO_MD, ESPACIADO_MD)
         );
 
         indicadores.setOpaque(false);
+        indicadores.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         indicadores.add(crearTarjeta(
                 "Prendas registradas",
-                "0",
+                "—",
                 "Inventario general",
                 COLOR_AZUL,
                 1
@@ -304,7 +398,7 @@ public class PanelInicio extends JPanel implements IModuloVista {
 
         indicadores.add(crearTarjeta(
                 "Alquileres activos",
-                "0",
+                "—",
                 "Servicios en curso",
                 COLOR_VERDE,
                 2
@@ -312,7 +406,7 @@ public class PanelInicio extends JPanel implements IModuloVista {
 
         indicadores.add(crearTarjeta(
                 "Clientes registrados",
-                "0",
+                "—",
                 "Personas registradas",
                 COLOR_MORADO,
                 3
@@ -320,23 +414,18 @@ public class PanelInicio extends JPanel implements IModuloVista {
 
         indicadores.add(crearTarjeta(
                 "Pendientes de lavandería",
-                "0",
+                "—",
                 "Solicitudes por atender",
                 COLOR_NARANJA,
                 4
         ));
 
-        indicadores.setPreferredSize(
-                new Dimension(1000, 165)
-        );
+        indicadores.setPreferredSize(new Dimension(0, ALTO_TARJETA));
 
-        indicadores.setMaximumSize(
-                new Dimension(Integer.MAX_VALUE, 165)
-        );
-
-        indicadores.setAlignmentX(
-                Component.LEFT_ALIGNMENT
-        );
+        indicadores.setMaximumSize(new Dimension(
+                Integer.MAX_VALUE,
+                Integer.MAX_VALUE
+        ));
 
         return indicadores;
     }
@@ -353,85 +442,92 @@ public class PanelInicio extends JPanel implements IModuloVista {
             int indicador
     ) {
 
-        JPanel tarjeta = new JPanel(
-                new BorderLayout(0, 12)
-        );
+        JPanel tarjeta = new JPanel(new BorderLayout(
+                0,
+                ESPACIADO_SM
+        ));
 
         tarjeta.setBackground(SUPERFICIE);
 
         tarjeta.setBorder(
                 BorderFactory.createCompoundBorder(
                         new LineBorder(COLOR_BORDE, 1, true),
-                        new EmptyBorder(20, 20, 20, 20)
+                        new EmptyBorder(
+                                ESPACIADO_MD,
+                                ESPACIADO_MD,
+                                ESPACIADO_MD,
+                                ESPACIADO_MD
+                        )
                 )
         );
 
-        // Título
-        JLabel lblTitulo = new JLabel(titulo);
+        tarjeta.setMinimumSize(new Dimension(
+                ANCHO_TARJETA_MINIMO,
+                ALTO_TARJETA
+        ));
+
+        tarjeta.setPreferredSize(new Dimension(
+                ANCHO_TARJETA_MINIMO,
+                ALTO_TARJETA
+        ));
+
+        // Título de la tarjeta.
+        JLabel lblTitulo = new JLabel(
+                "<html><div style='width:100%;'>"
+                        + escaparHTML(titulo)
+                        + "</div></html>"
+        );
 
         lblTitulo.setFont(FUENTE_TARJETA);
-
         lblTitulo.setForeground(TEXTO_SECUNDARIO);
 
-        // Valor
+        // Valor del indicador.
         JLabel lblValor = new JLabel(valor);
 
         lblValor.setFont(FUENTE_INDICADOR);
-
         lblValor.setForeground(colorIndicador);
 
-        // Descripción
-        JLabel lblDescripcion = new JLabel(descripcion);
-
-        lblDescripcion.setFont(
-                new Font(FUENTE_PRINCIPAL, Font.PLAIN, 11)
+        // Descripción.
+        JLabel lblDescripcion = new JLabel(
+                "<html><div style='width:100%;'>"
+                        + escaparHTML(descripcion)
+                        + "</div></html>"
         );
 
-        lblDescripcion.setForeground(
-                TEXTO_SECUNDARIO
-        );
+        lblDescripcion.setFont(FUENTE_PEQUENA);
+        lblDescripcion.setForeground(TEXTO_SECUNDARIO);
 
-        // Contenido central
         JPanel centro = new JPanel();
 
         centro.setOpaque(false);
-
         centro.setLayout(
                 new BoxLayout(centro, BoxLayout.Y_AXIS)
         );
 
+        lblValor.setAlignmentX(Component.LEFT_ALIGNMENT);
+        lblDescripcion.setAlignmentX(Component.LEFT_ALIGNMENT);
+
         centro.add(lblValor);
-
-        centro.add(
-                Box.createVerticalStrut(5)
-        );
-
+        centro.add(Box.createVerticalStrut(ESPACIADO_XS));
         centro.add(lblDescripcion);
 
-        tarjeta.add(
-                lblTitulo,
-                BorderLayout.NORTH
-        );
+        tarjeta.add(lblTitulo, BorderLayout.NORTH);
+        tarjeta.add(centro, BorderLayout.CENTER);
 
-        tarjeta.add(
-                centro,
-                BorderLayout.CENTER
-        );
-
-        // Guardar referencias de indicadores
+        // Guardar referencias para actualizar los indicadores.
         switch (indicador) {
 
-            case 1 ->
-                    lblTotalPrendas = lblValor;
+            case 1 -> lblTotalPrendas = lblValor;
 
-            case 2 ->
-                    lblAlquileresActivos = lblValor;
+            case 2 -> lblAlquileresActivos = lblValor;
 
-            case 3 ->
-                    lblTotalClientes = lblValor;
+            case 3 -> lblTotalClientes = lblValor;
 
-            case 4 ->
-                    lblPendientesLavanderia = lblValor;
+            case 4 -> lblPendientesLavanderia = lblValor;
+
+            default -> throw new IllegalArgumentException(
+                    "Indicador de tarjeta no reconocido."
+            );
         }
 
         return tarjeta;
@@ -443,16 +539,22 @@ public class PanelInicio extends JPanel implements IModuloVista {
 
     private JPanel crearPanelInformativo() {
 
-        JPanel informacion = new JPanel(
-                new BorderLayout(0, 14)
-        );
+        JPanel informacion = new JPanel(new BorderLayout(
+                0,
+                ESPACIADO_MD
+        ));
 
         informacion.setBackground(SUPERFICIE);
 
         informacion.setBorder(
                 BorderFactory.createCompoundBorder(
                         new LineBorder(COLOR_BORDE, 1, true),
-                        new EmptyBorder(20, 22, 20, 22)
+                        new EmptyBorder(
+                                ESPACIADO_MD,
+                                ESPACIADO_LG,
+                                ESPACIADO_MD,
+                                ESPACIADO_LG
+                        )
                 )
         );
 
@@ -463,109 +565,209 @@ public class PanelInicio extends JPanel implements IModuloVista {
         );
 
         JLabel mensaje = new JLabel(
-                "<html>Desde el menú lateral puedes acceder a los "
+                "<html><div style='width:100%;'>"
+                        + "Desde el menú lateral puedes acceder a los "
                         + "diferentes módulos del sistema.<br><br>"
                         + "Administra tus clientes y empleados, controla "
                         + "el inventario de prendas, registra alquileres "
-                        + "y supervisa las solicitudes de lavandería.</html>"
+                        + "y supervisa las solicitudes de lavandería."
+                        + "</div></html>"
         );
 
         mensaje.setFont(FUENTE_NORMAL);
-
         mensaje.setForeground(TEXTO_SECUNDARIO);
 
-        informacion.add(
-                titulo,
-                BorderLayout.NORTH
-        );
+        informacion.add(titulo, BorderLayout.NORTH);
+        informacion.add(mensaje, BorderLayout.CENTER);
 
-        informacion.add(
-                mensaje,
-                BorderLayout.CENTER
-        );
+        informacion.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        informacion.setMaximumSize(
-                new Dimension(Integer.MAX_VALUE, 150)
-        );
-
-        informacion.setAlignmentX(
-                Component.LEFT_ALIGNMENT
-        );
+        informacion.setMaximumSize(new Dimension(
+                Integer.MAX_VALUE,
+                Integer.MAX_VALUE
+        ));
 
         return informacion;
     }
 
     // ==========================================
-    // CARGAR INDICADORES
+    // CONSULTA DE INDICADORES
     // ==========================================
 
+    /**
+     * Agrupa los datos consultados para actualizar las tarjetas
+     * en una única operación sobre el EDT.
+     */
+    private record Indicadores(
+            int totalPrendas,
+            int totalClientes,
+            long alquileresActivos,
+            long pendientesLavanderia
+    ) {}
+
+    /**
+     * Consulta los indicadores en segundo plano para evitar que
+     * la interfaz se congele mientras se accede a la persistencia.
+     */
     public void actualizarIndicadores() {
 
-        try {
-
-            // Total de prendas
-            int totalPrendas = sistemaFacade
-                    .getGestorPrendas()
-                    .listarPrendas()
-                    .size();
-
-            // Total de clientes
-            int totalClientes = sistemaFacade
-                    .getGestorPersonas()
-                    .listarClientes()
-                    .size();
-
-            // Alquileres activos
-            long alquileresActivos = sistemaFacade
-                    .getGestorAlquiler()
-                    .listarTodos()
-                    .stream()
-                    .filter(alquiler ->
-                            alquiler.getEstado()
-                                    == EstadoAlquiler.ACTIVO
-                    )
-                    .count();
-
-            // Solicitudes pendientes de lavandería
-            long pendientesLavanderia = sistemaFacade
-                    .getGestorLavanderia()
-                    .listarSolicitudes()
-                    .stream()
-                    .filter(solicitud ->
-                            solicitud.getEstado()
-                                    == EstadoSolicitud.PENDIENTE
-                    )
-                    .count();
-
-            // Actualizar las tarjetas
-            lblTotalPrendas.setText(
-                    String.valueOf(totalPrendas)
-            );
-
-            lblTotalClientes.setText(
-                    String.valueOf(totalClientes)
-            );
-
-            lblAlquileresActivos.setText(
-                    String.valueOf(alquileresActivos)
-            );
-
-            lblPendientesLavanderia.setText(
-                    String.valueOf(pendientesLavanderia)
-            );
-
-        } catch (Exception e) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "No fue posible cargar los indicadores:\n"
-                            + e.getMessage(),
-                    "Error de consulta",
-                    JOptionPane.ERROR_MESSAGE
-            );
-
-            e.printStackTrace();
+        if (!SwingUtilities.isEventDispatchThread()) {
+            SwingUtilities.invokeLater(this::actualizarIndicadores);
+            return;
         }
+
+        if (tareaIndicadores != null && !tareaIndicadores.isDone()) {
+            tareaIndicadores.cancel(true);
+        }
+
+        establecerIndicadores("…");
+
+        tareaIndicadores = new SwingWorker<>() {
+
+            @Override
+            protected Indicadores doInBackground() {
+
+                int totalPrendas = sistemaFacade
+                        .getGestorPrendas()
+                        .listarPrendas()
+                        .size();
+
+                int totalClientes = sistemaFacade
+                        .getGestorPersonas()
+                        .listarClientes()
+                        .size();
+
+                long alquileresActivos = sistemaFacade
+                        .getGestorAlquiler()
+                        .listarTodos()
+                        .stream()
+                        .filter(alquiler ->
+                                alquiler.getEstado() == EstadoAlquiler.ACTIVO
+                        )
+                        .count();
+
+                long pendientesLavanderia = sistemaFacade
+                        .getGestorLavanderia()
+                        .listarSolicitudes()
+                        .stream()
+                        .filter(solicitud ->
+                                solicitud.getEstado() == EstadoSolicitud.PENDIENTE
+                        )
+                        .count();
+
+                return new Indicadores(
+                        totalPrendas,
+                        totalClientes,
+                        alquileresActivos,
+                        pendientesLavanderia
+                );
+            }
+
+            @Override
+            protected void done() {
+
+                if (isCancelled()) {
+                    return;
+                }
+
+                try {
+
+                    Indicadores datos = get();
+
+                    lblTotalPrendas.setText(
+                            String.valueOf(datos.totalPrendas())
+                    );
+
+                    lblTotalClientes.setText(
+                            String.valueOf(datos.totalClientes())
+                    );
+
+                    lblAlquileresActivos.setText(
+                            String.valueOf(datos.alquileresActivos())
+                    );
+
+                    lblPendientesLavanderia.setText(
+                            String.valueOf(datos.pendientesLavanderia())
+                    );
+
+                } catch (InterruptedException e) {
+
+                    Thread.currentThread().interrupt();
+
+                    establecerIndicadores("—");
+
+                } catch (ExecutionException e) {
+
+                    establecerIndicadores("—");
+
+                    Throwable causa = e.getCause() != null
+                            ? e.getCause()
+                            : e;
+
+                    JOptionPane.showMessageDialog(
+                            PanelInicio.this,
+                            "No fue posible cargar los indicadores:\n"
+                                    + causa.getMessage(),
+                            "Error de consulta",
+                            JOptionPane.ERROR_MESSAGE
+                    );
+
+                    causa.printStackTrace();
+                }
+            }
+        };
+
+        tareaIndicadores.execute();
+    }
+
+    /**
+     * Establece un valor temporal mientras se realiza la consulta.
+     */
+    private void establecerIndicadores(String valor) {
+
+        if (lblTotalPrendas != null) {
+            lblTotalPrendas.setText(valor);
+        }
+
+        if (lblAlquileresActivos != null) {
+            lblAlquileresActivos.setText(valor);
+        }
+
+        if (lblTotalClientes != null) {
+            lblTotalClientes.setText(valor);
+        }
+
+        if (lblPendientesLavanderia != null) {
+            lblPendientesLavanderia.setText(valor);
+        }
+    }
+
+    // ==========================================
+    // UTILIDADES VISUALES
+    // ==========================================
+
+    private JLabel crearEtiqueta(
+            String texto,
+            Font fuente,
+            Color color
+    ) {
+
+        JLabel etiqueta = new JLabel(texto);
+
+        etiqueta.setFont(fuente);
+        etiqueta.setForeground(color);
+
+        return etiqueta;
+    }
+
+    private String escaparHTML(String texto) {
+
+        return texto
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 
     // ==========================================

@@ -35,29 +35,39 @@ import java.util.Set;
  */
 public class GestorAlquiler implements IGestorAlquiler {
 
-    /** DAO para la persistencia y consulta de alquileres. */
+    /**
+     * DAO para la persistencia y consulta de alquileres.
+     */
     private final IAlquilerDAO alquilerDAO;
 
-    /** DAO para consultar y verificar la existencia de clientes. */
+    /**
+     * DAO para consultar y verificar la existencia de clientes.
+     */
     private final IClienteDAO clienteDAO;
 
-    /** DAO para consultar y verificar la existencia de empleados. */
+    /**
+     * DAO para consultar y verificar la existencia de empleados.
+     */
     private final IEmpleadoDAO empleadoDAO;
 
-    /** DAO para consultar y verificar la existencia e inventario de prendas. */
+    /**
+     * DAO para consultar y verificar la existencia e inventario de prendas.
+     */
     private final IPrendaDAO prendaDAO;
 
-    /** Validador de reglas de formato y lógica de fechas para alquileres. */
+    /**
+     * Validador de reglas de formato y lógica de fechas para alquileres.
+     */
     private final IAlquilerValidator validator;
 
     /**
      * Construye una nueva instancia de GestorAlquiler inyectando sus dependencias DAOs y validador.
      *
      * @param alquilerDAO DAO de alquileres.
-     * @param clienteDAO DAO de clientes.
+     * @param clienteDAO  DAO de clientes.
      * @param empleadoDAO DAO de empleados.
-     * @param prendaDAO DAO de prendas.
-     * @param validator Validador de alquileres.
+     * @param prendaDAO   DAO de prendas.
+     * @param validator   Validador de alquileres.
      * @throws NullPointerException Si alguno de los DAOs o el validador es nulo.
      */
     public GestorAlquiler(
@@ -95,14 +105,71 @@ public class GestorAlquiler implements IGestorAlquiler {
     }
 
     // --------------------------------------------------
+// ACTUALIZACIÓN DE ALQUILER
+// --------------------------------------------------
+
+    /**
+     * Actualiza un alquiler existente después de validar sus datos,
+     * las personas asociadas y las prendas incluidas.
+     * <p>
+     * La comprobación definitiva de disponibilidad se realiza dentro
+     * de la transacción del DAO, excluyendo el propio alquiler.
+     *
+     * @param alquiler Alquiler con los datos modificados.
+     * @return Alquiler actualizado y persistido.
+     */
+    @Override
+    public IAlquiler actualizarAlquiler(IAlquiler alquiler) {
+
+        if (alquiler == null) {
+            throw new ValidacionException(
+                    "El alquiler es obligatorio."
+            );
+        }
+
+        if (alquiler.getIdAlquiler() <= 0) {
+            throw new ValidacionException(
+                    "El identificador del alquiler no es válido."
+            );
+        }
+
+        // Validar fechas e identificaciones.
+        Map<String, String> datos =
+                construirDatosValidacion(alquiler);
+
+        ResultadoValidacion<Map<String, String>> resultado =
+                validator.validar(datos);
+
+        Map<String, String> datosValidados =
+                resultado.obtenerValor();
+
+        // Comprobar que el cliente esté registrado.
+        verificarClienteRegistrado(
+                datosValidados.get("identificacionCliente")
+        );
+
+        // Comprobar que el empleado esté registrado.
+        verificarEmpleadoRegistrado(
+                datosValidados.get("identificacionEmpleado")
+        );
+
+        // Comprobar que las prendas existan y que no estén duplicadas.
+        obtenerIdsPrendas(alquiler);
+
+        // La disponibilidad y la actualización se verifican
+        // conjuntamente dentro de la transacción del DAO.
+        return alquilerDAO.actualizar(alquiler);
+    }
+
+    // --------------------------------------------------
     // REGISTRO DE ALQUILER
     // --------------------------------------------------
 
     /**
      * {@inheritDoc}
      *
-     * @throws ValidacionException Si el contrato es nulo, los datos fallan validación,
-     *                             el cliente o empleado no existen, o hay prendas no disponibles.
+     * @throws ValidacionException   Si el contrato es nulo, los datos fallan validación,
+     *                               el cliente o empleado no existen, o hay prendas no disponibles.
      * @throws IllegalStateException Si el DAO no genera identificadores válidos.
      */
     @Override
@@ -263,7 +330,7 @@ public class GestorAlquiler implements IGestorAlquiler {
      *
      * @param alquiler Objeto de alquiler.
      * @return Lista de IDs numéricos de las prendas incluidas.
-     * @throws ValidacionException Si algún detalle o prenda es nulo, duplicado o tiene valor negativo.
+     * @throws ValidacionException   Si algún detalle o prenda es nulo, duplicado o tiene valor negativo.
      * @throws IllegalStateException Si la prenda registrada no posee un ID válido.
      */
     private List<Long> obtenerIdsPrendas(IAlquiler alquiler) {
@@ -283,7 +350,7 @@ public class GestorAlquiler implements IGestorAlquiler {
 
             if (detalle == null || detalle.getPrenda() == null) {
                 throw new ValidacionException(
-                    "El alquiler contiene un detalle o una prenda inválida."
+                        "El alquiler contiene un detalle o una prenda inválida."
                 );
             }
 
@@ -404,7 +471,7 @@ public class GestorAlquiler implements IGestorAlquiler {
     /**
      * {@inheritDoc}
      *
-     * @throws ValidacionException Si los parámetros de fechas son inconsistentes o hay duplicados en la lista.
+     * @throws ValidacionException   Si los parámetros de fechas son inconsistentes o hay duplicados en la lista.
      * @throws IllegalStateException Si la respuesta del DAO es nula.
      */
     @Override

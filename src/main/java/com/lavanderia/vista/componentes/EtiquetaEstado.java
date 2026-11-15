@@ -8,7 +8,12 @@ import java.awt.*;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
-/** Representa visualmente un estado de la aplicación. */
+/**
+ * Representa visualmente un estado de la aplicación.
+ *
+ * Se adapta al espacio disponible, permite textos extensos
+ * y conserva una presentación uniforme en los diferentes módulos.
+ */
 public class EtiquetaEstado extends JLabel {
 
     public enum TipoEstado {
@@ -22,7 +27,7 @@ public class EtiquetaEstado extends JLabel {
     private TipoEstado tipoEstado;
 
     public EtiquetaEstado(String texto, TipoEstado tipo) {
-        super(texto);
+        super(texto != null ? texto : "");
 
         configurarBase();
         actualizarEstado(texto, tipo);
@@ -47,6 +52,19 @@ public class EtiquetaEstado extends JLabel {
         ));
 
         setOpaque(true);
+
+        // Permite que la etiqueta se reduzca horizontalmente.
+        setMinimumSize(new Dimension(0, 0));
+
+        // Evita que la etiqueta se expanda verticalmente sin necesidad.
+        setMaximumSize(new Dimension(
+                Integer.MAX_VALUE,
+                Integer.MAX_VALUE
+        ));
+
+        setHorizontalTextPosition(SwingConstants.CENTER);
+
+        getAccessibleContext().setAccessibleName(getText());
     }
 
     // ==========================================
@@ -58,12 +76,12 @@ public class EtiquetaEstado extends JLabel {
         switch (tipo) {
 
             case EXITO -> {
-                setForeground(EXITO);
+                setForeground(EstilosUI.EXITO);
                 setBackground(EXITO_CLARO);
             }
 
             case ADVERTENCIA -> {
-                setForeground(ADVERTENCIA);
+                setForeground(EstilosUI.ADVERTENCIA);
                 setBackground(ADVERTENCIA_CLARO);
             }
 
@@ -73,7 +91,7 @@ public class EtiquetaEstado extends JLabel {
             }
 
             case PRIMARIO -> {
-                setForeground(PRIMARIO);
+                setForeground(EstilosUI.PRIMARIO);
                 setBackground(PRIMARIO_CLARO);
             }
 
@@ -99,10 +117,35 @@ public class EtiquetaEstado extends JLabel {
             );
         }
 
-        setText(texto);
+        String textoSeguro = texto != null ? texto : "";
+
+        setText(textoSeguro);
         tipoEstado = tipo;
 
         configurarEtiqueta(tipoEstado);
+
+        getAccessibleContext().setAccessibleName(textoSeguro);
+
+        setToolTipText(textoSeguro.isBlank() ? null : textoSeguro);
+
+        revalidate();
+        repaint();
+    }
+
+    // ==========================================
+    // ACTUALIZACIÓN DEL TEXTO
+    // ==========================================
+
+    @Override
+    public void setText(String texto) {
+
+        super.setText(texto);
+
+        if (getAccessibleContext() != null) {
+            getAccessibleContext().setAccessibleName(
+                    texto != null ? texto : ""
+            );
+        }
 
         revalidate();
         repaint();

@@ -5,38 +5,43 @@ import com.lavanderia.modelo.interfaces.ICliente;
 import com.lavanderia.patrones.facade.ISistemaFacade;
 import com.lavanderia.servicio.interfaces.IGestorPersonas;
 import com.lavanderia.validacion.persona.IPersonaValidator;
-import com.lavanderia.vista.componentes.BotonPrincipal;
 import com.lavanderia.vista.componentes.BotonSecundario;
-import com.lavanderia.vista.componentes.CampoBusqueda;
-import com.lavanderia.vista.componentes.TablaDatos;
-import com.lavanderia.vista.estilos.IconosUI;
 import com.lavanderia.vista.paneles.comunes.PanelModulo;
+import com.lavanderia.vista.paneles.comunes.PanelTabla;
 
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
-import static com.lavanderia.vista.estilos.EstilosUI.*;
-
-/** Presenta el módulo de clientes y sus acciones en la interfaz Swing. */
+/**
+ * Panel para consultar, registrar y editar clientes.
+ *
+ * Utiliza los componentes comunes de interfaz y trabaja
+ * exclusivamente con interfaces de servicio y fachada.
+ */
 public class PanelClientes extends PanelModulo {
 
     private final IGestorPersonas gestorPersonas;
     private final IPersonaValidator validador;
 
-    private final CampoBusqueda campoBusqueda;
-    private final TablaDatos tablaClientes;
+    private final PanelTabla panelTabla;
     private final DefaultTableModel modeloTabla;
 
     private final BotonSecundario botonEditar;
 
     private List<ICliente> clientes;
+
+    // ==================================================
+    // CONSTRUCTOR
+    // ==================================================
 
     public PanelClientes(
             ISistemaFacade sistemaFacade,
@@ -46,7 +51,7 @@ public class PanelClientes extends PanelModulo {
                 "clientes",
                 "Clientes",
                 "Consulta y administra los clientes registrados.",
-                IconosUI.clientes()
+                com.lavanderia.vista.estilos.IconosUI.clientes()
         );
 
         Objects.requireNonNull(
@@ -66,57 +71,46 @@ public class PanelClientes extends PanelModulo {
 
         this.clientes = new ArrayList<>();
 
-        this.campoBusqueda = new CampoBusqueda(
+        this.panelTabla = new PanelTabla(
                 "Buscar por identificación, nombre, teléfono o correo..."
         );
 
-        this.tablaClientes = new TablaDatos();
         this.modeloTabla = crearModeloTabla();
 
-        this.botonEditar = new BotonSecundario("Editar cliente");
+        this.botonEditar = new BotonSecundario(
+                "Editar cliente"
+        );
 
         inicializarComponentes();
         configurarEventos();
         cargarClientes();
     }
 
-    // ==========================================
-    // INICIALIZACIÓN DE COMPONENTES
-    // ==========================================
+    // ==================================================
+    // INICIALIZACIÓN
+    // ==================================================
 
     private void inicializarComponentes() {
 
-        JPanel panelPrincipal = new JPanel(
-                new BorderLayout(0, ESPACIADO_MD)
-        );
-
-        panelPrincipal.setOpaque(false);
-
-        // Barra de herramientas.
-        JPanel panelHerramientas = new JPanel(
-                new BorderLayout()
-        );
-
-        panelHerramientas.setOpaque(false);
-
-        JLabel etiquetaResultados = crearEtiqueta(
-                "Clientes registrados",
-                FUENTE_SECCION,
-                TEXTO
-        );
-
-        // Botón registrar.
-        BotonPrincipal botonNuevo =
-                new BotonPrincipal("Nuevo cliente");
-
-        botonNuevo.setIcon(IconosUI.agregar());
-
-        botonNuevo.addActionListener(
+        // Acción principal del encabezado heredado.
+        configurarAccion(
+                "Nuevo cliente",
                 e -> abrirFormularioRegistro()
         );
 
-        // Botón editar.
-        botonEditar.setIcon(IconosUI.editar());
+        // Configurar tabla común.
+        panelTabla.setModelo(modeloTabla);
+
+        panelTabla.getTablaDatos()
+                .setOrdenamientoHabilitado(true);
+
+        // Acciones secundarias.
+        configurarAccionesTabla();
+
+        agregarContenido(panelTabla);
+    }
+
+    private void configurarAccionesTabla() {
 
         botonEditar.addActionListener(
                 e -> abrirFormularioEdicion()
@@ -124,60 +118,24 @@ public class PanelClientes extends PanelModulo {
 
         botonEditar.setEnabled(false);
 
-        // Botón actualizar.
         BotonSecundario botonActualizar =
                 new BotonSecundario("Actualizar");
 
-        botonActualizar.setIcon(IconosUI.actualizar());
+        botonActualizar.setIcon(
+                com.lavanderia.vista.estilos.IconosUI.actualizar()
+        );
 
         botonActualizar.addActionListener(
                 e -> cargarClientes()
         );
 
-        JPanel panelAcciones = new JPanel(
-                new FlowLayout(
-                        FlowLayout.RIGHT,
-                        ESPACIADO_SM,
-                        0
-                )
-        );
-
-        panelAcciones.setOpaque(false);
-        panelAcciones.add(campoBusqueda);
-        panelAcciones.add(botonEditar);
-        panelAcciones.add(botonActualizar);
-        panelAcciones.add(botonNuevo);
-
-        panelHerramientas.add(
-                etiquetaResultados,
-                BorderLayout.WEST
-        );
-
-        panelHerramientas.add(
-                panelAcciones,
-                BorderLayout.EAST
-        );
-
-        // Tabla.
-        tablaClientes.setModelo(modeloTabla);
-        tablaClientes.setOrdenamientoHabilitado(true);
-
-        panelPrincipal.add(
-                panelHerramientas,
-                BorderLayout.NORTH
-        );
-
-        panelPrincipal.add(
-                tablaClientes,
-                BorderLayout.CENTER
-        );
-
-        agregarContenido(panelPrincipal);
+        panelTabla.agregarAccion(botonEditar);
+        panelTabla.agregarAccion(botonActualizar);
     }
 
-    // ==========================================
+    // ==================================================
     // MODELO DE TABLA
-    // ==========================================
+    // ==================================================
 
     private DefaultTableModel crearModeloTabla() {
 
@@ -191,81 +149,156 @@ public class PanelClientes extends PanelModulo {
                 },
                 0
         ) {
+
             @Override
-            public boolean isCellEditable(int fila, int columna) {
+            public boolean isCellEditable(
+                    int fila,
+                    int columna) {
+
                 return false;
             }
         };
     }
 
-    // ==========================================
-    // APERTURA DE FORMULARIOS
-    // ==========================================
+    // ==================================================
+    // EVENTOS
+    // ==================================================
+
+    private void configurarEventos() {
+
+        // Búsqueda dinámica.
+        panelTabla.getCampoBusqueda().addDocumentListener(
+                new DocumentListener() {
+
+                    @Override
+                    public void insertUpdate(DocumentEvent e) {
+                        filtrarClientes();
+                    }
+
+                    @Override
+                    public void removeUpdate(DocumentEvent e) {
+                        filtrarClientes();
+                    }
+
+                    @Override
+                    public void changedUpdate(DocumentEvent e) {
+                        filtrarClientes();
+                    }
+                }
+        );
+
+        // Habilitar edición según la selección.
+        panelTabla.getTablaDatos()
+                .getTabla()
+                .getSelectionModel()
+                .addListSelectionListener(e -> {
+
+                    if (!e.getValueIsAdjusting()) {
+                        actualizarEstadoBotonEditar();
+                    }
+                });
+
+        // Doble clic para editar.
+        panelTabla.getTablaDatos()
+                .getTabla()
+                .addMouseListener(
+                        new MouseAdapter() {
+
+                            @Override
+                            public void mouseClicked(MouseEvent e) {
+
+                                if (e.getClickCount() == 2
+                                        && SwingUtilities.isLeftMouseButton(e)) {
+
+                                    abrirFormularioEdicion();
+                                }
+                            }
+                        }
+                );
+    }
+
+    private void actualizarEstadoBotonEditar() {
+
+        botonEditar.setEnabled(
+                obtenerClienteSeleccionado() != null
+        );
+    }
+
+    // ==================================================
+    // REGISTRAR CLIENTE
+    // ==================================================
 
     private void abrirFormularioRegistro() {
 
         Window propietario =
                 SwingUtilities.getWindowAncestor(this);
 
-        FormularioClientes formulario = new FormularioClientes(
-                propietario,
-                gestorPersonas,
-                validador,
-                this::cargarClientes
-        );
+        FormularioClientes formulario =
+                new FormularioClientes(
+                        propietario,
+                        gestorPersonas,
+                        validador,
+                        this::cargarClientes
+                );
 
         formulario.mostrar();
     }
+
+    // ==================================================
+    // EDITAR CLIENTE
+    // ==================================================
 
     private void abrirFormularioEdicion() {
 
         ICliente cliente = obtenerClienteSeleccionado();
 
         if (cliente == null) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Seleccione un cliente para editar.",
-                    "Selección requerida",
-                    JOptionPane.WARNING_MESSAGE
+            mostrarAdvertencia(
+                    "Seleccione un cliente para editar."
             );
-
             return;
         }
 
         Window propietario =
                 SwingUtilities.getWindowAncestor(this);
 
-        FormularioClientes formulario = new FormularioClientes(
-                propietario,
-                gestorPersonas,
-                validador,
-                cliente,
-                this::cargarClientes
-        );
+        FormularioClientes formulario =
+                new FormularioClientes(
+                        propietario,
+                        gestorPersonas,
+                        validador,
+                        cliente,
+                        this::cargarClientes
+                );
 
         formulario.mostrar();
     }
 
-    // ==========================================
+    // ==================================================
     // OBTENER CLIENTE SELECCIONADO
-    // ==========================================
+    // ==================================================
 
     private ICliente obtenerClienteSeleccionado() {
 
-        int filaVista = tablaClientes.getFilaSeleccionada();
+        JTable tabla = panelTabla.getTablaDatos().getTabla();
+
+        int filaVista = tabla.getSelectedRow();
 
         if (filaVista == -1) {
             return null;
         }
 
-        // Convertir índice visual al índice del modelo.
-        int filaModelo = tablaClientes.getTabla()
-                .convertRowIndexToModel(filaVista);
+        // Convertir el índice visual al índice del modelo.
+        int filaModelo = tabla.convertRowIndexToModel(filaVista);
 
-        String identificacion = String.valueOf(
-                modeloTabla.getValueAt(filaModelo, 0)
-        );
+        Object valorIdentificacion =
+                modeloTabla.getValueAt(filaModelo, 0);
+
+        if (valorIdentificacion == null) {
+            return null;
+        }
+
+        String identificacion = valorIdentificacion.toString();
 
         return clientes.stream()
                 .filter(Objects::nonNull)
@@ -278,63 +311,9 @@ public class PanelClientes extends PanelModulo {
                 .orElse(null);
     }
 
-    // ==========================================
-    // EVENTOS
-    // ==========================================
-
-    private void configurarEventos() {
-
-        campoBusqueda.addDocumentListener(new DocumentListener() {
-
-            @Override
-            public void insertUpdate(DocumentEvent e) {
-                filtrarClientes();
-            }
-
-            @Override
-            public void removeUpdate(DocumentEvent e) {
-                filtrarClientes();
-            }
-
-            @Override
-            public void changedUpdate(DocumentEvent e) {
-                filtrarClientes();
-            }
-        });
-
-        // Habilitar edición al seleccionar una fila.
-        tablaClientes.getTabla()
-                .getSelectionModel()
-                .addListSelectionListener(e -> {
-
-                    if (!e.getValueIsAdjusting()) {
-                        botonEditar.setEnabled(
-                                tablaClientes.getFilaSeleccionada() != -1
-                        );
-                    }
-                });
-
-        // Doble clic para editar.
-        tablaClientes.getTabla().addMouseListener(
-                new java.awt.event.MouseAdapter() {
-
-                    @Override
-                    public void mouseClicked(
-                            java.awt.event.MouseEvent e) {
-
-                        if (e.getClickCount() == 2
-                                && SwingUtilities.isLeftMouseButton(e)) {
-
-                            abrirFormularioEdicion();
-                        }
-                    }
-                }
-        );
-    }
-
-    // ==========================================
+    // ==================================================
     // CONSULTA DE CLIENTES
-    // ==========================================
+    // ==================================================
 
     private void cargarClientes() {
 
@@ -351,25 +330,25 @@ public class PanelClientes extends PanelModulo {
 
             clientes = new ArrayList<>(resultado);
 
-            // Conserva el filtro de búsqueda actual.
+            // Conservar el texto de búsqueda actual.
             filtrarClientes();
 
         } catch (RuntimeException ex) {
 
             mostrarError(
                     "No fue posible cargar los clientes.\n"
-                            + ex.getMessage()
+                            + obtenerMensajeError(ex)
             );
         }
     }
 
-    // ==========================================
-    // FILTRO DE CLIENTES
-    // ==========================================
+    // ==================================================
+    // FILTRADO
+    // ==================================================
 
     private void filtrarClientes() {
 
-        String texto = campoBusqueda.getText()
+        String texto = panelTabla.getTextoBusqueda()
                 .trim()
                 .toLowerCase(Locale.ROOT);
 
@@ -381,15 +360,22 @@ public class PanelClientes extends PanelModulo {
         List<ICliente> resultados = clientes.stream()
                 .filter(Objects::nonNull)
                 .filter(cliente ->
-                        contiene(cliente.getIdentificacion(), texto)
-                                || contiene(cliente.getNombre(), texto)
-                                || contiene(cliente.getTelefono(), texto)
-                                || contiene(cliente.getCorreo(), texto)
-                                || contiene(cliente.getDireccion(), texto)
+                        coincideConBusqueda(cliente, texto)
                 )
                 .toList();
 
         actualizarTabla(resultados);
+    }
+
+    private boolean coincideConBusqueda(
+            ICliente cliente,
+            String texto) {
+
+        return contiene(cliente.getIdentificacion(), texto)
+                || contiene(cliente.getNombre(), texto)
+                || contiene(cliente.getTelefono(), texto)
+                || contiene(cliente.getCorreo(), texto)
+                || contiene(cliente.getDireccion(), texto);
     }
 
     private boolean contiene(
@@ -400,42 +386,53 @@ public class PanelClientes extends PanelModulo {
                 && valor.toLowerCase(Locale.ROOT).contains(texto);
     }
 
-    // ==========================================
+    // ==================================================
     // ACTUALIZACIÓN DE LA TABLA
-    // ==========================================
+    // ==================================================
 
     private void actualizarTabla(List<ICliente> listaClientes) {
 
         modeloTabla.setRowCount(0);
 
-        if (listaClientes == null) {
-            botonEditar.setEnabled(false);
-            return;
-        }
+        if (listaClientes != null) {
 
-        for (ICliente cliente : listaClientes) {
+            for (ICliente cliente : listaClientes) {
 
-            if (cliente == null) {
-                continue;
+                if (cliente == null) {
+                    continue;
+                }
+
+                modeloTabla.addRow(new Object[]{
+                        cliente.getIdentificacion(),
+                        cliente.getNombre(),
+                        cliente.getTelefono(),
+                        cliente.getCorreo(),
+                        cliente.getDireccion()
+                });
             }
-
-            modeloTabla.addRow(new Object[]{
-                    cliente.getIdentificacion(),
-                    cliente.getNombre(),
-                    cliente.getTelefono(),
-                    cliente.getCorreo(),
-                    cliente.getDireccion()
-            });
         }
 
         // Evitar mantener una selección sobre datos anteriores.
-        tablaClientes.getTabla().clearSelection();
+        panelTabla.getTablaDatos()
+                .getTabla()
+                .clearSelection();
+
         botonEditar.setEnabled(false);
     }
 
-    // ==========================================
+    // ==================================================
     // MENSAJES
-    // ==========================================
+    // ==================================================
+
+    private void mostrarAdvertencia(String mensaje) {
+
+        JOptionPane.showMessageDialog(
+                this,
+                mensaje,
+                "Selección requerida",
+                JOptionPane.WARNING_MESSAGE
+        );
+    }
 
     private void mostrarError(String mensaje) {
 
@@ -445,5 +442,13 @@ public class PanelClientes extends PanelModulo {
                 "Error",
                 JOptionPane.ERROR_MESSAGE
         );
+    }
+
+    private String obtenerMensajeError(RuntimeException ex) {
+
+        return ex.getMessage() == null
+                || ex.getMessage().isBlank()
+                ? "Ocurrió un error inesperado."
+                : ex.getMessage();
     }
 }

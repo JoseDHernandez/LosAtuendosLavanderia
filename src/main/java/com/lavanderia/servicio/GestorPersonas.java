@@ -262,6 +262,16 @@ public class GestorPersonas implements IGestorPersonas {
         return empleadoActualizado;
     }
 
+    /**
+     * Eliminar empleado por su identificación
+     *
+     * @param identificacion Identificación del empleado
+     * */
+    @Override
+    public void eliminarEmpleado(String identificacion) {
+
+    }
+
     // ==========================================
     // VALIDACIONES INTERNAS
     // ==========================================
@@ -296,9 +306,12 @@ public class GestorPersonas implements IGestorPersonas {
             String identificacion) {
 
         if (personaDAO.existeIdentificacion(identificacion)) {
+
             throw new ValidacionException(
-                    "Ya existe una persona registrada con la identificación: "
-                            + identificacion
+                    Map.of(
+                            "identificacion",
+                            "Ya existe una persona registrada con esta identificación."
+                    )
             );
         }
     }
@@ -319,8 +332,10 @@ public class GestorPersonas implements IGestorPersonas {
                 identificacionExcluida)) {
 
             throw new ValidacionException(
-                    "Ya existe otra persona registrada con la identificación: "
-                            + identificacion
+                    Map.of(
+                            "identificacion",
+                            "Esta identificación ya pertenece a otra persona."
+                    )
             );
         }
     }

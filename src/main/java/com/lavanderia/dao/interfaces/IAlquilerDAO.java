@@ -13,6 +13,14 @@ import java.util.Optional;
  * sobre las transacciones de alquiler de prendas.
  */
 public interface IAlquilerDAO {
+    /**
+     * Actualiza la información de un alquiler existente y sus detalles asociados.
+     * La operación debe ejecutarse de forma transaccional.
+     *
+     * @param alquiler Alquiler con los datos modificados.
+     * @return Alquiler actualizado y persistido.
+     */
+    IAlquiler actualizar(IAlquiler alquiler);
 
     /**
      * Registra un nuevo alquiler y sus líneas de detalle asociadas.

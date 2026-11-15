@@ -1,3 +1,4 @@
+
 package com.lavanderia.vista.paneles.comunes;
 
 import com.lavanderia.vista.interfaces.IModuloVista;
@@ -19,7 +20,7 @@ public abstract class PanelModulo extends JPanel implements IModuloVista {
     protected final JPanel panelContenido;
 
     /**
-     * Constructor para módulos sin botón de acción en el encabezado.
+     * Constructor para módulos sin botón de acción inicial.
      */
     protected PanelModulo(
             String id,
@@ -31,7 +32,7 @@ public abstract class PanelModulo extends JPanel implements IModuloVista {
     }
 
     /**
-     * Constructor para módulos con botón de acción en el encabezado.
+     * Constructor para módulos con botón de acción inicial.
      */
     protected PanelModulo(
             String id,
@@ -44,12 +45,12 @@ public abstract class PanelModulo extends JPanel implements IModuloVista {
 
         validarDatos(id, titulo);
 
-        this.id = id;
-        this.titulo = titulo;
+        this.id = id.trim();
+        this.titulo = titulo.trim();
         this.icono = icono;
 
         this.encabezado = new PanelEncabezado(
-                titulo,
+                this.titulo,
                 descripcion,
                 textoAccion,
                 accion
@@ -61,6 +62,9 @@ public abstract class PanelModulo extends JPanel implements IModuloVista {
         construirContenido();
     }
 
+    /**
+     * Valida los datos obligatorios del módulo.
+     */
     private void validarDatos(String id, String titulo) {
 
         if (id == null || id.isBlank()) {
@@ -76,6 +80,9 @@ public abstract class PanelModulo extends JPanel implements IModuloVista {
         }
     }
 
+    /**
+     * Configura las propiedades visuales generales.
+     */
     private void configurarPanel() {
 
         setLayout(new BorderLayout(0, ESPACIADO_MD));
@@ -93,14 +100,18 @@ public abstract class PanelModulo extends JPanel implements IModuloVista {
         panelContenido.setOpaque(true);
     }
 
+    /**
+     * Agrega los componentes principales del módulo.
+     */
     private void construirContenido() {
+
         add(encabezado, BorderLayout.NORTH);
         add(panelContenido, BorderLayout.CENTER);
     }
 
-    // ==========================================
+    // ==================================================
     // CONTRATO IMODULOVISTA
-    // ==========================================
+    // ==================================================
 
     @Override
     public String getId() {
@@ -122,9 +133,9 @@ public abstract class PanelModulo extends JPanel implements IModuloVista {
         return this;
     }
 
-    // ==========================================
-    // MÉTODOS PARA SUBCLASES
-    // ==========================================
+    // ==================================================
+    // ACCESO A COMPONENTES PARA SUBCLASES
+    // ==================================================
 
     protected JPanel getPanelContenido() {
         return panelContenido;
@@ -134,14 +145,80 @@ public abstract class PanelModulo extends JPanel implements IModuloVista {
         return encabezado;
     }
 
+    /**
+     * Agrega un componente en el centro del contenido.
+     *
+     * Si ya existe un componente en CENTER,
+     * será reemplazado por el nuevo.
+     */
     protected void agregarContenido(Component componente) {
+
+        validarComponente(componente);
+
         panelContenido.add(componente, BorderLayout.CENTER);
+
+        actualizarVista();
     }
 
-    protected void agregarContenido(Component componente, Object posicion) {
+    /**
+     * Agrega un componente en una posición específica.
+     */
+    protected void agregarContenido(
+            Component componente,
+            Object posicion
+    ) {
+
+        validarComponente(componente);
+
+        if (posicion == null) {
+            throw new IllegalArgumentException(
+                    "La posición del componente es obligatoria."
+            );
+        }
+
         panelContenido.add(componente, posicion);
+
+        actualizarVista();
     }
 
+    /**
+     * Elimina todos los componentes del área de contenido.
+     */
+    protected void limpiarContenido() {
+
+        panelContenido.removeAll();
+
+        actualizarVista();
+    }
+
+    /**
+     * Valida que el componente no sea nulo.
+     */
+    private void validarComponente(Component componente) {
+
+        if (componente == null) {
+            throw new IllegalArgumentException(
+                    "El componente que se desea agregar no puede ser nulo."
+            );
+        }
+    }
+
+    /**
+     * Actualiza la presentación después de modificar el contenido.
+     */
+    private void actualizarVista() {
+
+        panelContenido.revalidate();
+        panelContenido.repaint();
+    }
+
+    // ==================================================
+    // CONFIGURACIÓN DEL ENCABEZADO
+    // ==================================================
+
+    /**
+     * Actualiza el título del módulo.
+     */
     protected void setTitulo(String titulo) {
 
         if (titulo == null || titulo.isBlank()) {
@@ -150,19 +227,67 @@ public abstract class PanelModulo extends JPanel implements IModuloVista {
             );
         }
 
-        this.titulo = titulo;
-        encabezado.setTitulo(titulo);
+        this.titulo = titulo.trim();
+        encabezado.setTitulo(this.titulo);
     }
 
+    /**
+     * Actualiza la descripción del encabezado.
+     */
     protected void setDescripcion(String descripcion) {
         encabezado.setDescripcion(descripcion);
     }
 
+    /**
+     * Actualiza el texto del botón de acción.
+     */
     protected void setTextoAccion(String texto) {
         encabezado.setTextoAccion(texto);
     }
 
+    /**
+     * Actualiza la acción del botón existente.
+     */
     protected void setAccion(ActionListener accion) {
         encabezado.setAccion(accion);
     }
+
+    /**
+     * Configura o crea dinámicamente el botón de acción.
+     */
+    protected void configurarAccion(
+            String texto,
+            ActionListener accion
+    ) {
+        encabezado.configurarBotonAccion(texto, accion);
+    }
+
+    /**
+     * Oculta el botón de acción.
+     */
+    protected void ocultarAccion() {
+        encabezado.ocultarBotonAccion();
+    }
+
+    /**
+     * Muestra el botón de acción.
+     */
+    protected void mostrarAccion() {
+        encabezado.mostrarBotonAccion();
+    }
+
+    /**
+     * Elimina el botón de acción.
+     */
+    protected void eliminarAccion() {
+        encabezado.eliminarBotonAccion();
+    }
+
+    /**
+     * Indica si el encabezado tiene un botón de acción.
+     */
+    protected boolean tieneAccion() {
+        return encabezado.tieneBotonAccion();
+    }
+
 }

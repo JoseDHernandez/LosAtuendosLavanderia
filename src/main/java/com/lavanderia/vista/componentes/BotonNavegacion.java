@@ -1,190 +1,390 @@
+
 package com.lavanderia.vista.componentes;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
 /**
- * Componente de botón personalizado para las opciones del menú lateral de navegación.
- * Extiende {@link JButton} y gestiona tres estados visuales:
- * <ul>
- *   <li><b>Normal:</b> Fondo transparente/neutro y texto en color suave.</li>
- *   <li><b>Hover:</b> Fondo sombreado al situar el puntero del ratón.</li>
- *   <li><b>Activo:</b> Fondo primario tenue, texto azul y tipografía en negrita para el módulo actual.</li>
- * </ul>
+ * Botón personalizado para las opciones del menú lateral.
+ *
+ * Características:
+ * - Adaptación automática al ancho disponible.
+ * - Ajuste de tipografía para evitar textos cortados.
+ * - Conservación del texto original.
+ * - Estados visuales normal, hover, activo y deshabilitado.
+ * - Dimensiones flexibles compatibles con BoxLayout.
+ * - Accesibilidad mediante nombres y descripciones.
  */
 public class BotonNavegacion extends JButton {
 
-    /** Tipografía base utilizada para los botones del menú. */
+    // =====================================================
+    // 1. ATRIBUTOS
+    // =====================================================
+
+    /** Tipografía base del botón. */
     private static final Font FUENTE_BASE = FUENTE_NORMAL;
 
-    /** Indica si el botón representa el módulo que se encuentra activo actualmente. */
+    /** Tamaño mínimo permitido para la tipografía. */
+    private static final float TAMANO_FUENTE_MINIMO = 10f;
+
+    /** Tamaño máximo de la tipografía. */
+    private static final float TAMANO_FUENTE_MAXIMO = 14f;
+
+    /** Texto original del botón. */
+    private final String textoOriginal;
+
+    /** Indica si el módulo está seleccionado. */
     private boolean activo = false;
 
-    /** Indica si el cursor del ratón se encuentra posicionado sobre el botón. */
+    /** Indica si el cursor está sobre el botón. */
     private boolean hover = false;
 
+    /** Ancho disponible para el botón. */
+    private int anchoDisponible = ANCHO_MENU_LATERAL - ESPACIADO_LG;
+
+    /** Evita actualizaciones innecesarias de tipografía. */
+    private boolean actualizandoFuente = false;
+
+    // =====================================================
+    // 2. CONSTRUCTOR
+    // =====================================================
+
     /**
-     * Construye un nuevo botón de navegación con icono y texto.
+     * Construye un botón de navegación.
      *
-     * @param icono Icono representativo de la opción.
-     * @param texto Etiqueta descriptiva del módulo.
+     * @param icono Icono representativo del módulo.
+     * @param texto Nombre del módulo.
      */
     public BotonNavegacion(Icon icono, String texto) {
 
-        super(texto, icono);
+        super(
+                texto == null ? "" : texto,
+                icono
+        );
 
-        // Configurar geometría, colores y bordes
+        this.textoOriginal = texto == null ? "" : texto;
+
         configurarBoton();
-        // Registrar escuchadores de ratón para interactividad
         configurarEventos();
+        configurarAdaptabilidad();
 
-        // Aplicar el estilo visual inicial
         actualizarEstilo();
     }
 
-    // ==========================================
-    // CONFIGURACIÓN
-    // ==========================================
+    // =====================================================
+    // 3. CONFIGURACIÓN GENERAL
+    // =====================================================
 
     /**
-     * Ajusta la alineación, espaciados internos, cursor de mano y dimensiones del botón.
+     * Configura las propiedades visuales y geométricas.
      */
     private void configurarBoton() {
 
         setFont(FUENTE_BASE);
         setForeground(NAV_TEXTO);
 
+        // Alineación del contenido.
         setHorizontalAlignment(SwingConstants.LEFT);
+
         setHorizontalTextPosition(SwingConstants.RIGHT);
+        setVerticalAlignment(SwingConstants.CENTER);
+        setVerticalTextPosition(SwingConstants.CENTER);
+
         setIconTextGap(ESPACIADO_SM);
 
-        // Margen interno de relleno
-        setBorder(BorderFactory.createEmptyBorder(
-                ESPACIADO_MD - ESPACIADO_XS,
-                ESPACIADO_MD,
-                ESPACIADO_MD - ESPACIADO_XS,
-                ESPACIADO_MD - ESPACIADO_XS
-        ));
+        // Márgenes internos.
+        setBorder(
+                BorderFactory.createEmptyBorder(
+                        ESPACIADO_MD - ESPACIADO_XS,
+                        ESPACIADO_MD,
+                        ESPACIADO_MD - ESPACIADO_XS,
+                        ESPACIADO_MD - ESPACIADO_XS
+                )
+        );
 
-        // Desactivar decoración nativa para control manual del renderizado
+        // Renderizado personalizado.
         setFocusPainted(false);
         setBorderPainted(false);
         setContentAreaFilled(true);
         setOpaque(true);
 
-        setCursor(new Cursor(Cursor.HAND_CURSOR));
+        setCursor(
+                new Cursor(Cursor.HAND_CURSOR)
+        );
+
         setRolloverEnabled(false);
 
+        // Dimensiones flexibles.
         setPreferredSize(
                 new Dimension(
-                        ANCHO_MENU_LATERAL - ESPACIADO_LG,
+                        anchoDisponible,
                         ALTO_BOTON
                 )
         );
+
+        setMinimumSize(
+                new Dimension(
+                        0,
+                        ALTO_BOTON
+                )
+        );
+
+        setMaximumSize(
+                new Dimension(
+                        Integer.MAX_VALUE,
+                        ALTO_BOTON
+                )
+        );
+
+        // Información accesible.
+        setToolTipText(textoOriginal);
+
+        getAccessibleContext().setAccessibleName(
+                textoOriginal
+        );
     }
 
-    // ==========================================
-    // EVENTOS
-    // ==========================================
+    // =====================================================
+    // 4. ADAPTABILIDAD
+    // =====================================================
 
     /**
-     * Registra eventos de ratón para detectar estados de hover (entrada y salida del cursor).
+     * Registra los eventos necesarios para adaptar
+     * la tipografía al tamaño real del botón.
      */
-    private void configurarEventos() {
+    private void configurarAdaptabilidad() {
 
-        addMouseListener(new MouseAdapter() {
+        addComponentListener(
+                new ComponentAdapter() {
 
-            @Override
-            public void mouseEntered(MouseEvent e) {
+                    @Override
+                    public void componentResized(
+                            ComponentEvent e) {
 
-                if (isEnabled()) {
-                    hover = true;
-                    actualizarEstilo();
+                        ajustarTipografia();
+                    }
                 }
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e) {
-
-                hover = false;
-                actualizarEstilo();
-            }
-        });
+        );
     }
 
-    // ==========================================
-    // ESTADO DEL BOTÓN
-    // ==========================================
-
     /**
-     * Define si el botón pasa a representar el módulo actualmente abierto.
+     * Permite establecer el ancho disponible desde MainFrame.
      *
-     * @param activo {@code true} para activarlo, {@code false} para devolverlo a estado normal.
+     * @param ancho Ancho disponible en píxeles.
      */
-    public void setActivo(boolean activo) {
+    public void setAnchoDisponible(int ancho) {
 
-        this.activo = activo;
-        actualizarEstilo();
+        if (ancho <= 0) {
+            return;
+        }
+
+        anchoDisponible = ancho;
+
+        setPreferredSize(
+                new Dimension(
+                        anchoDisponible,
+                        ALTO_BOTON
+                )
+        );
+
+        ajustarTipografia();
+
+        revalidate();
+        repaint();
     }
 
     /**
-     * Consulta si el botón se encuentra en estado activo.
+     * Obtiene el ancho disponible configurado.
      *
-     * @return {@code true} si está activo.
+     * @return Ancho del botón.
      */
-    public boolean isActivo() {
-        return activo;
+    public int getAnchoDisponible() {
+        return anchoDisponible;
     }
 
-    // ==========================================
-    // ACTUALIZACIÓN VISUAL
-    // ==========================================
-
     /**
-     * Actualiza la combinación de colores y pesos tipográficos según los estados de habilitación, hover y selección.
+     * Ajusta el tamaño de la fuente según el espacio
+     * horizontal disponible para mostrar el texto.
+     *
+     * Evita que el texto quede recortado cuando
+     * disminuye el ancho del menú lateral.
      */
-    private void actualizarEstilo() {
+    private void ajustarTipografia() {
 
-        if (!isEnabled()) {
+        if (actualizandoFuente) {
+            return;
+        }
 
-            // Estado deshabilitado
-            setBackground(FONDO);
-            setForeground(TEXTO_DESHABILITADO);
-            setFont(FUENTE_BASE);
+        if (textoOriginal.isEmpty()) {
+            return;
+        }
 
-        } else if (activo) {
+        int anchoReal = getWidth();
 
-            // Módulo seleccionado: fondo azul claro y tipografía negrita
-            setBackground(NAV_ACTIVO);
-            setForeground(PRIMARIO);
-            setFont(FUENTE_BASE.deriveFont(Font.BOLD));
+        if (anchoReal <= 0) {
+            anchoReal = anchoDisponible;
+        }
 
-        } else if (hover) {
+        Insets margenes = getInsets();
 
-            // Puntero encima: fondo hover sutil
-            setBackground(NAV_HOVER);
-            setForeground(NAV_TEXTO);
-            setFont(FUENTE_BASE);
+        int anchoIcono = getIcon() != null
+                ? getIcon().getIconWidth() + getIconTextGap()
+                : 0;
 
-        } else {
+        int anchoTexto = anchoReal
+                - margenes.left
+                - margenes.right
+                - anchoIcono
+                - ESPACIADO_XS;
 
-            // Estado de reposo
-            setBackground(NAV_NORMAL);
-            setForeground(NAV_TEXTO);
-            setFont(FUENTE_BASE);
+        // Reducir la tipografía proporcionalmente al espacio.
+        float tamano = TAMANO_FUENTE_MAXIMO;
+
+        Font fuente = FUENTE_BASE.deriveFont(tamano);
+
+        FontMetrics metricas = getFontMetrics(fuente);
+
+        while (metricas.stringWidth(textoOriginal) > anchoTexto
+                && tamano > TAMANO_FUENTE_MINIMO) {
+
+            tamano -= 0.5f;
+
+            fuente = FUENTE_BASE.deriveFont(tamano);
+
+            metricas = getFontMetrics(fuente);
+        }
+
+        actualizandoFuente = true;
+
+        try {
+
+            setFont(fuente);
+
+        } finally {
+
+            actualizandoFuente = false;
         }
 
         repaint();
     }
 
+    // =====================================================
+    // 5. EVENTOS DEL RATÓN
+    // =====================================================
+
     /**
-     * Sobrescribe la habilitación del componente asegurando la actualización estética.
+     * Configura los estados hover del botón.
+     */
+    private void configurarEventos() {
+
+        addMouseListener(
+                new MouseAdapter() {
+
+                    @Override
+                    public void mouseEntered(MouseEvent e) {
+
+                        if (isEnabled()) {
+
+                            hover = true;
+
+                            actualizarEstilo();
+                        }
+                    }
+
+                    @Override
+                    public void mouseExited(MouseEvent e) {
+
+                        hover = false;
+
+                        actualizarEstilo();
+                    }
+                }
+        );
+    }
+
+    // =====================================================
+    // 6. ESTADO ACTIVO
+    // =====================================================
+
+    /**
+     * Establece si el botón representa el módulo actual.
      *
-     * @param enabled {@code true} para habilitar, {@code false} para deshabilitar.
+     * @param activo Estado de selección.
+     */
+    public void setActivo(boolean activo) {
+
+        this.activo = activo;
+
+        actualizarEstilo();
+    }
+
+    /**
+     * Consulta si el botón está seleccionado.
+     *
+     * @return true si está activo.
+     */
+    public boolean isActivo() {
+        return activo;
+    }
+
+    // =====================================================
+    // 7. ACTUALIZACIÓN DE ESTILOS
+    // =====================================================
+
+    /**
+     * Actualiza colores y tipografía según el estado.
+     */
+    private void actualizarEstilo() {
+
+        if (!isEnabled()) {
+
+            // Estado deshabilitado.
+            setBackground(FONDO);
+
+            setForeground(TEXTO_DESHABILITADO);
+
+        } else if (activo) {
+
+            // Módulo seleccionado.
+            setBackground(NAV_ACTIVO);
+
+            setForeground(PRIMARIO);
+
+        } else if (hover) {
+
+            // Cursor sobre el botón.
+            setBackground(NAV_HOVER);
+
+            setForeground(NAV_TEXTO);
+
+        } else {
+
+            // Estado normal.
+            setBackground(NAV_NORMAL);
+
+            setForeground(NAV_TEXTO);
+        }
+
+        // Actualizar tipografía conservando el estado.
+        ajustarTipografia();
+
+        repaint();
+    }
+
+    // =====================================================
+    // 8. CONTROL DE HABILITACIÓN
+    // =====================================================
+
+    /**
+     * Actualiza el estilo cuando cambia la habilitación.
+     *
+     * @param enabled Estado de habilitación.
      */
     @Override
     public void setEnabled(boolean enabled) {
@@ -196,5 +396,18 @@ public class BotonNavegacion extends JButton {
         }
 
         actualizarEstilo();
+    }
+
+    // =====================================================
+    // 9. ACTUALIZACIÓN DEL TEXTO
+    // =====================================================
+
+    /**
+     * Obtiene el texto original completo.
+     *
+     * @return Texto descriptivo del módulo.
+     */
+    public String getTextoOriginal() {
+        return textoOriginal;
     }
 }

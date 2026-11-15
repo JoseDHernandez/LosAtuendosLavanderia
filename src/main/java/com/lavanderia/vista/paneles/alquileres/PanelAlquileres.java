@@ -1,21 +1,27 @@
+
 package com.lavanderia.vista.paneles.alquileres;
 
+import com.lavanderia.modelo.enums.EstadoAlquiler;
 import com.lavanderia.modelo.interfaces.IAlquiler;
+import com.lavanderia.modelo.interfaces.IDetalleAlquiler;
 import com.lavanderia.patrones.facade.ISistemaFacade;
 import com.lavanderia.servicio.interfaces.IGestorAlquiler;
 import com.lavanderia.validacion.alquiler.IAlquilerValidator;
 import com.lavanderia.vista.componentes.BotonPrincipal;
 import com.lavanderia.vista.componentes.BotonSecundario;
-import com.lavanderia.vista.componentes.CampoBusqueda;
-import com.lavanderia.vista.componentes.TablaDatos;
+import com.lavanderia.vista.componentes.DialogoConfirmacion;
 import com.lavanderia.vista.estilos.IconosUI;
 import com.lavanderia.vista.paneles.comunes.PanelModulo;
+import com.lavanderia.vista.paneles.comunes.PanelTabla;
 
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -23,21 +29,26 @@ import java.util.Objects;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
-/** Presenta el módulo de alquileres y sus acciones en la interfaz Swing. */
+/**
+ * Panel para consultar y administrar los alquileres registrados.
+ *
+ * Utiliza los componentes comunes de la interfaz y depende
+ * exclusivamente de las interfaces de servicio y fachada.
+ */
 public class PanelAlquileres extends PanelModulo {
+
     private final ISistemaFacade sistemaFacade;
     private final IGestorAlquiler gestorAlquiler;
     private final IAlquilerValidator validador;
 
-    private final CampoBusqueda campoBusqueda;
-    private final TablaDatos tablaAlquileres;
+    private final PanelTabla panelTabla;
     private final DefaultTableModel modeloTabla;
 
     private List<IAlquiler> alquileres;
 
-    // ==========================================
+    // ==================================================
     // CONSTRUCTOR
-    // ==========================================
+    // ==================================================
 
     public PanelAlquileres(
             ISistemaFacade sistemaFacade,
@@ -50,7 +61,7 @@ public class PanelAlquileres extends PanelModulo {
                 IconosUI.alquileres()
         );
 
-        Objects.requireNonNull(
+        this.sistemaFacade = Objects.requireNonNull(
                 sistemaFacade,
                 "La fachada del sistema es obligatoria."
         );
@@ -67,107 +78,110 @@ public class PanelAlquileres extends PanelModulo {
 
         this.alquileres = new ArrayList<>();
 
-        this.campoBusqueda = new CampoBusqueda(
+        this.panelTabla = new PanelTabla(
                 "Buscar por consecutivo, cliente o empleado..."
         );
 
-        this.tablaAlquileres = new TablaDatos();
         this.modeloTabla = crearModeloTabla();
-        this.sistemaFacade = Objects.requireNonNull(
-                sistemaFacade,
-                "La fachada del sistema es obligatoria."
-        );
+
         inicializarComponentes();
         configurarEventos();
         cargarAlquileres();
     }
 
-    // ==========================================
-    // INICIALIZACIÓN DE COMPONENTES
-    // ==========================================
+    // ==================================================
+    // INICIALIZACIÓN
+    // ==================================================
 
     private void inicializarComponentes() {
 
-        JPanel panelPrincipal = new JPanel(
-                new BorderLayout(0, ESPACIADO_MD)
-        );
+        // Oculta la acción predeterminada del encabezado.
+        // Las acciones se gestionan desde el panel de la tabla.
+        ocultarAccion();
 
-        panelPrincipal.setOpaque(false);
+        panelTabla.setModelo(modeloTabla);
 
-        // Barra de herramientas.
-        JPanel panelHerramientas = new JPanel(
-                new BorderLayout()
-        );
+        configurarAccionesTabla();
 
-        panelHerramientas.setOpaque(false);
+        agregarContenido(panelTabla);
+    }
 
-        JLabel etiquetaResultados = crearEtiqueta(
-                "Alquileres registrados",
-                FUENTE_SECCION,
-                TEXTO
-        );
+    // ==================================================
+    // ACCIONES DE LA TABLA
+    // ==================================================
 
-        // Botón nuevo alquiler.
+    private void configurarAccionesTabla() {
+
+        // ----------------------------------------------
+        // NUEVO ALQUILER - BOTÓN PRINCIPAL
+        // ----------------------------------------------
+
         BotonPrincipal botonNuevo =
                 new BotonPrincipal("Nuevo alquiler");
+
+        botonNuevo.configurarIcono(
+                IconosUI.agregar()
+        );
 
         botonNuevo.addActionListener(
                 e -> abrirFormularioRegistro()
         );
 
-        // Botón actualizar.
+        // ----------------------------------------------
+        // ACTUALIZAR - BOTÓN SECUNDARIO
+        // ----------------------------------------------
+
         BotonSecundario botonActualizar =
                 new BotonSecundario("Actualizar");
+
+        botonActualizar.configurarIcono(
+                IconosUI.actualizar()
+        );
 
         botonActualizar.addActionListener(
                 e -> cargarAlquileres()
         );
 
-        // Acciones.
-        JPanel panelAcciones = new JPanel(
-                new FlowLayout(
-                        FlowLayout.RIGHT,
-                        ESPACIADO_SM,
-                        0
-                )
+        // ----------------------------------------------
+        // EDITAR - BOTÓN SECUNDARIO
+        // ----------------------------------------------
+
+        BotonSecundario botonEditar =
+                new BotonSecundario("Editar");
+
+        botonEditar.configurarIcono(
+                IconosUI.editar()
         );
 
-        panelAcciones.setOpaque(false);
-
-        panelAcciones.add(campoBusqueda);
-        panelAcciones.add(botonActualizar);
-        panelAcciones.add(botonNuevo);
-
-        panelHerramientas.add(
-                etiquetaResultados,
-                BorderLayout.WEST
+        botonEditar.addActionListener(
+                e -> abrirFormularioEdicion()
         );
 
-        panelHerramientas.add(
-                panelAcciones,
-                BorderLayout.EAST
+        // ----------------------------------------------
+        // CANCELAR - BOTÓN SECUNDARIO
+        // ----------------------------------------------
+
+        BotonSecundario botonCancelar =
+                new BotonSecundario("Cancelar alquiler");
+
+        botonCancelar.configurarIcono(
+                IconosUI.cancelar()
         );
 
-        // Tabla.
-        tablaAlquileres.setModelo(modeloTabla);
-        tablaAlquileres.setOrdenamientoHabilitado(true);
-
-        panelPrincipal.add(
-                panelHerramientas,
-                BorderLayout.NORTH
+        botonCancelar.addActionListener(
+                e -> cancelarAlquiler()
         );
 
-        panelPrincipal.add(
-                tablaAlquileres,
-                BorderLayout.CENTER
-        );
-
-        agregarContenido(panelPrincipal);
+        // Se agregan los componentes reutilizables.
+        panelTabla.agregarAccion(botonNuevo);
+        panelTabla.agregarAccion(botonActualizar);
+        panelTabla.agregarAccion(botonEditar);
+        panelTabla.agregarAccion(botonCancelar);
     }
 
-    // ==========================================
+    // ==================================================
     // MODELO DE TABLA
-    // ==========================================
+    // ==================================================
 
     private DefaultTableModel crearModeloTabla() {
 
@@ -195,45 +209,14 @@ public class PanelAlquileres extends PanelModulo {
         };
     }
 
-    // ==========================================
-    // CONSULTA DE ALQUILERES
-    // ==========================================
-
-    private void cargarAlquileres() {
-
-        try {
-
-            List<IAlquiler> resultado =
-                    gestorAlquiler.listarTodos();
-
-            if (resultado == null) {
-
-                throw new IllegalStateException(
-                        "El gestor devolvió una lista de alquileres nula."
-                );
-            }
-
-            alquileres = new ArrayList<>(resultado);
-
-            // Mantener el texto de búsqueda actual.
-            filtrarAlquileres();
-
-        } catch (RuntimeException ex) {
-
-            mostrarError(
-                    "No fue posible cargar los alquileres.\n"
-                            + ex.getMessage()
-            );
-        }
-    }
-
-    // ==========================================
-    // FILTRO DE ALQUILERES
-    // ==========================================
+    // ==================================================
+    // EVENTOS
+    // ==================================================
 
     private void configurarEventos() {
 
-        campoBusqueda.addDocumentListener(
+        // Búsqueda dinámica.
+        panelTabla.getCampoBusqueda().addDocumentListener(
                 new DocumentListener() {
 
                     @Override
@@ -253,27 +236,62 @@ public class PanelAlquileres extends PanelModulo {
                 }
         );
 
-        // Doble clic para consultar el alquiler.
-        tablaAlquileres.getTabla().addMouseListener(
-                new java.awt.event.MouseAdapter() {
+        // Doble clic para consultar el detalle.
+        panelTabla.getTablaDatos()
+                .getTabla()
+                .addMouseListener(
+                        new MouseAdapter() {
 
-                    @Override
-                    public void mouseClicked(
-                            java.awt.event.MouseEvent e) {
+                            @Override
+                            public void mouseClicked(MouseEvent e) {
 
-                        if (e.getClickCount() == 2
-                                && SwingUtilities.isLeftMouseButton(e)) {
+                                if (e.getClickCount() == 2
+                                        && SwingUtilities.isLeftMouseButton(e)) {
 
-                            mostrarDetalleAlquiler();
+                                    mostrarDetalleAlquiler();
+                                }
+                            }
                         }
-                    }
-                }
-        );
+                );
     }
+
+    // ==================================================
+    // CONSULTA DE ALQUILERES
+    // ==================================================
+
+    private void cargarAlquileres() {
+
+        try {
+
+            List<IAlquiler> resultado =
+                    gestorAlquiler.listarTodos();
+
+            if (resultado == null) {
+                throw new IllegalStateException(
+                        "El gestor devolvió una lista de alquileres nula."
+                );
+            }
+
+            alquileres = new ArrayList<>(resultado);
+
+            filtrarAlquileres();
+
+        } catch (RuntimeException ex) {
+
+            mostrarError(
+                    "No fue posible cargar los alquileres.\n"
+                            + obtenerMensajeError(ex)
+            );
+        }
+    }
+
+    // ==================================================
+    // FILTRADO
+    // ==================================================
 
     private void filtrarAlquileres() {
 
-        String texto = campoBusqueda.getText()
+        String texto = panelTabla.getTextoBusqueda()
                 .trim()
                 .toLowerCase(Locale.ROOT);
 
@@ -285,32 +303,50 @@ public class PanelAlquileres extends PanelModulo {
         List<IAlquiler> resultados = alquileres.stream()
                 .filter(Objects::nonNull)
                 .filter(alquiler ->
-                        contiene(
-                                String.valueOf(
-                                        alquiler.getNumeroConsecutivo()
-                                ),
-                                texto
-                        )
-                                || contiene(
-                                alquiler.getCliente().getNombre(),
-                                texto
-                        )
-                                || contiene(
-                                alquiler.getCliente().getIdentificacion(),
-                                texto
-                        )
-                                || contiene(
-                                alquiler.getEmpleado().getNombre(),
-                                texto
-                        )
-                                || contiene(
-                                alquiler.getEmpleado().getIdentificacion(),
-                                texto
-                        )
+                        coincideConBusqueda(alquiler, texto)
                 )
                 .toList();
 
         actualizarTabla(resultados);
+    }
+
+    private boolean coincideConBusqueda(
+            IAlquiler alquiler,
+            String texto) {
+
+        if (contiene(
+                String.valueOf(alquiler.getNumeroConsecutivo()),
+                texto)) {
+            return true;
+        }
+
+        if (alquiler.getCliente() != null) {
+
+            if (contiene(
+                    alquiler.getCliente().getNombre(),
+                    texto)
+                    || contiene(
+                    alquiler.getCliente().getIdentificacion(),
+                    texto)) {
+
+                return true;
+            }
+        }
+
+        if (alquiler.getEmpleado() != null) {
+
+            if (contiene(
+                    alquiler.getEmpleado().getNombre(),
+                    texto)
+                    || contiene(
+                    alquiler.getEmpleado().getIdentificacion(),
+                    texto)) {
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private boolean contiene(
@@ -321,12 +357,11 @@ public class PanelAlquileres extends PanelModulo {
                 && valor.toLowerCase(Locale.ROOT).contains(texto);
     }
 
-    // ==========================================
+    // ==================================================
     // ACTUALIZACIÓN DE LA TABLA
-    // ==========================================
+    // ==================================================
 
-    private void actualizarTabla(
-            List<IAlquiler> listaAlquileres) {
+    private void actualizarTabla(List<IAlquiler> listaAlquileres) {
 
         modeloTabla.setRowCount(0);
 
@@ -340,24 +375,41 @@ public class PanelAlquileres extends PanelModulo {
                 continue;
             }
 
+            String nombreCliente =
+                    alquiler.getCliente() == null
+                            ? "Sin cliente"
+                            : alquiler.getCliente().getNombre();
+
+            String nombreEmpleado =
+                    alquiler.getEmpleado() == null
+                            ? "Sin empleado"
+                            : alquiler.getEmpleado().getNombre();
+
+            int cantidadPrendas =
+                    alquiler.getDetalles() == null
+                            ? 0
+                            : alquiler.getDetalles().size();
+
             modeloTabla.addRow(new Object[]{
                     alquiler.getNumeroConsecutivo(),
                     alquiler.getFechaSolicitud(),
                     alquiler.getFechaInicio(),
                     alquiler.getFechaFinPrevista(),
-                    alquiler.getCliente().getNombre(),
-                    alquiler.getEmpleado().getNombre(),
-                    alquiler.getDetalles().size(),
+                    nombreCliente,
+                    nombreEmpleado,
+                    cantidadPrendas,
                     alquiler.getEstado()
             });
         }
 
-        tablaAlquileres.getTabla().clearSelection();
+        panelTabla.getTablaDatos()
+                .getTabla()
+                .clearSelection();
     }
 
-    // ==========================================
-    // APERTURA DEL FORMULARIO
-    // ==========================================
+    // ==================================================
+    // REGISTRAR ALQUILER
+    // ==================================================
 
     private void abrirFormularioRegistro() {
 
@@ -375,27 +427,163 @@ public class PanelAlquileres extends PanelModulo {
         formulario.mostrar();
     }
 
-    // ==========================================
-    // CONSULTAR ALQUILER SELECCIONADO
-    // ==========================================
+    // ==================================================
+    // EDITAR ALQUILER
+    // ==================================================
+
+    private void abrirFormularioEdicion() {
+
+        IAlquiler alquiler = obtenerAlquilerSeleccionado();
+
+        if (alquiler == null) {
+            mostrarError(
+                    "Seleccione un alquiler para editar."
+            );
+            return;
+        }
+
+        if (!permiteEdicion(alquiler)) {
+            mostrarError(
+                    "No es posible editar un alquiler cancelado o finalizado."
+            );
+            return;
+        }
+
+        Window propietario =
+                SwingUtilities.getWindowAncestor(this);
+
+        FormularioAlquileres formulario =
+                new FormularioAlquileres(
+                        propietario,
+                        sistemaFacade,
+                        validador,
+                        alquiler,
+                        this::cargarAlquileres
+                );
+
+        formulario.mostrar();
+    }
+
+    private boolean permiteEdicion(IAlquiler alquiler) {
+
+        return alquiler.getEstado() != EstadoAlquiler.CANCELADO
+                && alquiler.getEstado() != EstadoAlquiler.FINALIZADO;
+    }
+
+    // ==================================================
+    // CANCELAR ALQUILER
+    // ==================================================
+
+    private void cancelarAlquiler() {
+
+        IAlquiler alquiler = obtenerAlquilerSeleccionado();
+
+        if (alquiler == null) {
+            mostrarError(
+                    "Seleccione un alquiler para cancelar."
+            );
+            return;
+        }
+
+        if (!permiteCancelacion(alquiler)) {
+
+            if (alquiler.getEstado() == EstadoAlquiler.CANCELADO) {
+                mostrarError(
+                        "El alquiler seleccionado ya está cancelado."
+                );
+            } else {
+                mostrarError(
+                        "No es posible cancelar un alquiler finalizado."
+                );
+            }
+
+            return;
+        }
+
+        Window propietario =
+                SwingUtilities.getWindowAncestor(this);
+
+        DialogoConfirmacion dialogo = new DialogoConfirmacion(
+                propietario,
+                "Cancelar alquiler",
+                "¿Está seguro de que desea cancelar el alquiler número "
+                        + alquiler.getNumeroConsecutivo()
+                        + "?\n\n"
+                        + "El registro se conservará en el historial."
+        );
+
+        if (!dialogo.mostrarDialogo()) {
+            return;
+        }
+
+        ejecutarCancelacion(alquiler);
+    }
+
+    private boolean permiteCancelacion(IAlquiler alquiler) {
+
+        return alquiler.getEstado() != EstadoAlquiler.CANCELADO
+                && alquiler.getEstado() != EstadoAlquiler.FINALIZADO;
+    }
+
+    private void ejecutarCancelacion(IAlquiler alquiler) {
+
+        try {
+
+            gestorAlquiler.cambiarEstado(
+                    alquiler.getIdAlquiler(),
+                    EstadoAlquiler.CANCELADO
+            );
+
+            cargarAlquileres();
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "El alquiler fue cancelado correctamente.",
+                    "Alquiler cancelado",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+
+        } catch (RuntimeException ex) {
+
+            mostrarError(
+                    "No fue posible cancelar el alquiler.\n"
+                            + obtenerMensajeError(ex)
+            );
+        }
+    }
+
+    // ==================================================
+    // OBTENER ALQUILER SELECCIONADO
+    // ==================================================
 
     private IAlquiler obtenerAlquilerSeleccionado() {
 
-        int filaVista =
-                tablaAlquileres.getFilaSeleccionada();
+        JTable tabla = panelTabla.getTablaDatos().getTabla();
+
+        int filaVista = tabla.getSelectedRow();
 
         if (filaVista == -1) {
             return null;
         }
 
-        int filaModelo = tablaAlquileres.getTabla()
-                .convertRowIndexToModel(filaVista);
+        int filaModelo = tabla.convertRowIndexToModel(filaVista);
 
-        int consecutivo = Integer.parseInt(
-                String.valueOf(
-                        modeloTabla.getValueAt(filaModelo, 0)
-                )
-        );
+        Object valorConsecutivo =
+                modeloTabla.getValueAt(filaModelo, 0);
+
+        if (valorConsecutivo == null) {
+            return null;
+        }
+
+        int consecutivo;
+
+        try {
+            consecutivo = Integer.parseInt(
+                    valorConsecutivo.toString()
+            );
+        } catch (NumberFormatException ex) {
+            return null;
+        }
 
         return alquileres.stream()
                 .filter(Objects::nonNull)
@@ -405,6 +593,10 @@ public class PanelAlquileres extends PanelModulo {
                 .findFirst()
                 .orElse(null);
     }
+
+    // ==================================================
+    // DETALLE DEL ALQUILER
+    // ==================================================
 
     private void mostrarDetalleAlquiler() {
 
@@ -433,15 +625,19 @@ public class PanelAlquileres extends PanelModulo {
                 .append("\n\n");
 
         detalle.append("Cliente: ")
-                .append(alquiler.getCliente().getNombre())
-                .append(" - ")
-                .append(alquiler.getCliente().getIdentificacion())
+                .append(alquiler.getCliente() == null
+                        ? "Sin cliente"
+                        : alquiler.getCliente().getNombre()
+                        + " - "
+                        + alquiler.getCliente().getIdentificacion())
                 .append("\n");
 
         detalle.append("Empleado: ")
-                .append(alquiler.getEmpleado().getNombre())
-                .append(" - ")
-                .append(alquiler.getEmpleado().getIdentificacion())
+                .append(alquiler.getEmpleado() == null
+                        ? "Sin empleado"
+                        : alquiler.getEmpleado().getNombre()
+                        + " - "
+                        + alquiler.getEmpleado().getIdentificacion())
                 .append("\n\n");
 
         detalle.append("Estado: ")
@@ -450,14 +646,31 @@ public class PanelAlquileres extends PanelModulo {
 
         detalle.append("Prendas:\n");
 
-        alquiler.getDetalles().forEach(detalleAlquiler -> {
+        List<IDetalleAlquiler> detalles = alquiler.getDetalles();
 
-            detalle.append("• ")
-                    .append(detalleAlquiler.getPrenda().getReferencia())
-                    .append(" - $")
-                    .append(detalleAlquiler.getValorAcordado())
-                    .append("\n");
-        });
+        if (detalles == null || detalles.isEmpty()) {
+
+            detalle.append("No hay prendas asociadas.\n");
+
+        } else {
+
+            for (IDetalleAlquiler detalleAlquiler : detalles) {
+
+                if (detalleAlquiler == null
+                        || detalleAlquiler.getPrenda() == null) {
+                    continue;
+                }
+
+                BigDecimal valor =
+                        detalleAlquiler.getValorAcordado();
+
+                detalle.append("• ")
+                        .append(detalleAlquiler.getPrenda().getReferencia())
+                        .append(" - $")
+                        .append(valor == null ? "0" : valor.toPlainString())
+                        .append("\n");
+            }
+        }
 
         JTextArea areaDetalle = new JTextArea(
                 detalle.toString()
@@ -467,7 +680,17 @@ public class PanelAlquileres extends PanelModulo {
         areaDetalle.setLineWrap(true);
         areaDetalle.setWrapStyleWord(true);
         areaDetalle.setFont(FUENTE_NORMAL);
+        areaDetalle.setForeground(TEXTO);
         areaDetalle.setBackground(SUPERFICIE);
+
+        areaDetalle.setBorder(
+                BorderFactory.createEmptyBorder(
+                        ESPACIADO_SM,
+                        ESPACIADO_SM,
+                        ESPACIADO_SM,
+                        ESPACIADO_SM
+                )
+        );
 
         JScrollPane scroll = new JScrollPane(areaDetalle);
 
@@ -483,9 +706,17 @@ public class PanelAlquileres extends PanelModulo {
         );
     }
 
-    // ==========================================
+    // ==================================================
     // MENSAJES
-    // ==========================================
+    // ==================================================
+
+    private String obtenerMensajeError(RuntimeException ex) {
+
+        return ex.getMessage() == null
+                || ex.getMessage().isBlank()
+                ? "Ocurrió un error inesperado."
+                : ex.getMessage();
+    }
 
     private void mostrarError(String mensaje) {
 
@@ -496,5 +727,4 @@ public class PanelAlquileres extends PanelModulo {
                 JOptionPane.ERROR_MESSAGE
         );
     }
-
 }

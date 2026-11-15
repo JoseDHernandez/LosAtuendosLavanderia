@@ -8,17 +8,34 @@ import java.awt.event.MouseEvent;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
-/** Botón con el estilo de acciones secundarias. */
+/**
+ * Botón destinado a las acciones secundarias.
+ *
+ * Características:
+ * - Utiliza dimensiones centralizadas en EstilosUI.
+ * - Mantiene el texto en una sola línea.
+ * - Alinea el icono a la izquierda del texto.
+ * - Conserva los estados visuales normal, hover y deshabilitado.
+ * - Permite actualizar su texto e icono.
+ */
 public class BotonSecundario extends JButton {
 
-    private boolean hover = false;
+    private boolean hover;
+
+    private String textoOriginal;
+
+    // ==========================================
+    // CONSTRUCTOR
+    // ==========================================
 
     public BotonSecundario(String texto) {
-        super(texto);
+
+        super(texto != null ? texto : "");
+
+        this.textoOriginal = texto != null ? texto : "";
 
         configurarBoton();
         configurarEventos();
-
         actualizarEstilo();
     }
 
@@ -29,35 +46,60 @@ public class BotonSecundario extends JButton {
     private void configurarBoton() {
 
         setFont(FUENTE_ETIQUETA);
+
         setForeground(TEXTO);
         setBackground(SUPERFICIE);
 
+        // Alineación del contenido.
         setHorizontalAlignment(SwingConstants.CENTER);
+        setVerticalAlignment(SwingConstants.CENTER);
 
+        // Icono a la izquierda del texto.
+        setHorizontalTextPosition(SwingConstants.RIGHT);
+        setVerticalTextPosition(SwingConstants.CENTER);
+
+        setIconTextGap(ESPACIADO_SM);
+
+        // Borde y márgenes internos.
         setBorder(BorderFactory.createCompoundBorder(
                 BORDE_SIMPLE,
                 BorderFactory.createEmptyBorder(
-                        ESPACIADO_SM + ESPACIADO_XS,
-                        ESPACIADO_LG - ESPACIADO_XS,
-                        ESPACIADO_SM + ESPACIADO_XS,
-                        ESPACIADO_LG - ESPACIADO_XS
+                        ESPACIADO_SM,
+                        ESPACIADO_MD,
+                        ESPACIADO_SM,
+                        ESPACIADO_MD
                 )
         ));
 
+        // Comportamiento visual.
         setFocusPainted(false);
         setBorderPainted(true);
         setContentAreaFilled(true);
         setOpaque(true);
 
         setCursor(new Cursor(Cursor.HAND_CURSOR));
+
         setRolloverEnabled(false);
 
-        setPreferredSize(
-                new Dimension(
-                        ANCHO_BOTON_MINIMO,
-                        ALTO_BOTON_PRINCIPAL
-                )
+        // Dimensiones centralizadas.
+        setPreferredSize(dimensionBotonSecundario());
+
+        setMinimumSize(new Dimension(
+                ANCHO_BOTON_MINIMO,
+                ALTO_BOTON_PRINCIPAL
+        ));
+
+        setMaximumSize(new Dimension(
+                Integer.MAX_VALUE,
+                ALTO_BOTON_PRINCIPAL
+        ));
+
+        // Accesibilidad.
+        getAccessibleContext().setAccessibleName(
+                textoOriginal
         );
+
+        setToolTipText(textoOriginal);
     }
 
     // ==========================================
@@ -70,6 +112,7 @@ public class BotonSecundario extends JButton {
 
             @Override
             public void mouseEntered(MouseEvent e) {
+
                 if (isEnabled()) {
                     hover = true;
                     actualizarEstilo();
@@ -78,6 +121,7 @@ public class BotonSecundario extends JButton {
 
             @Override
             public void mouseExited(MouseEvent e) {
+
                 hover = false;
                 actualizarEstilo();
             }
@@ -111,6 +155,7 @@ public class BotonSecundario extends JButton {
 
     @Override
     public void setEnabled(boolean enabled) {
+
         super.setEnabled(enabled);
 
         if (!enabled) {
@@ -120,10 +165,50 @@ public class BotonSecundario extends JButton {
         actualizarEstilo();
     }
 
+    // ==========================================
+    // MÉTODOS PÚBLICOS
+    // ==========================================
+
+    /**
+     * Actualiza el texto del botón.
+     */
+    public void setTexto(String texto) {
+
+        textoOriginal = texto != null ? texto : "";
+
+        super.setText(textoOriginal);
+
+        getAccessibleContext().setAccessibleName(
+                textoOriginal
+        );
+
+        setToolTipText(textoOriginal);
+
+        revalidate();
+        repaint();
+    }
+
+    /**
+     * Devuelve el texto original del botón.
+     */
+    public String getTextoOriginal() {
+
+        return textoOriginal;
+    }
+
+    /**
+     * Configura el icono del botón.
+     */
     public void configurarIcono(Icon icono) {
+
         setIcon(icono);
+
         setIconTextGap(ESPACIADO_SM);
+
         setHorizontalTextPosition(SwingConstants.RIGHT);
         setVerticalTextPosition(SwingConstants.CENTER);
+
+        revalidate();
+        repaint();
     }
 }

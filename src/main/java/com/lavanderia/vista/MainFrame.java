@@ -1,3 +1,4 @@
+
 package com.lavanderia.vista;
 
 import com.lavanderia.vista.componentes.BotonNavegacion;
@@ -6,72 +7,132 @@ import com.lavanderia.vista.interfaces.IModuloVista;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
 /**
- * Ventana principal (JFrame) de la aplicación de escritorio "Los Atuendos".
- * Implementa la arquitectura visual tipo dashboard moderno:
- * <ul>
- *   <li>Menú lateral izquierdo con marca corporativa, opciones de navegación y pie con versión.</li>
- *   <li>Barra superior con título del módulo activo, ruta tipo migas de pan (breadcrumb) y perfil de usuario.</li>
- *   <li>Área central dinámica gestionada mediante {@link CardLayout} para la alternancia entre módulos ({@link IModuloVista}).</li>
- * </ul>
+ * Ventana principal de la aplicación Lavandería - Los Atuendos.
+ *
+ * Responsabilidades:
+ * - Administrar la estructura general de la aplicación.
+ * - Gestionar el menú lateral de navegación.
+ * - Presentar la información del módulo activo.
+ * - Administrar el cambio de vistas mediante CardLayout.
+ * - Adaptar la distribución visual al tamaño disponible de la ventana.
+ *
+ * La clase trabaja mediante el contrato IModuloVista,
+ * evitando dependencias directas con las implementaciones
+ * de los diferentes módulos.
+ *
+ * Las operaciones de interfaz deben ejecutarse en el EDT
+ * (Event Dispatch Thread) de Swing.
  */
 public class MainFrame extends JFrame {
 
-    // ==========================================
-    // COMPONENTES PRINCIPALES
-    // ==========================================
+    // =====================================================
+    // 1. COMPONENTES PRINCIPALES
+    // =====================================================
 
-    /** Panel central que aloja las vistas de los módulos intercambiables con CardLayout. */
+    /** Contenedor central de los módulos. */
     private final JPanel panelContenido;
 
-    /** Panel lateral contenedor del menú de navegación. */
-    private final JPanel menuLateral;
-
-    /** Barra superior con título de pantalla activa y perfil. */
-    private final JPanel barraSuperior;
-
-    /** Administrador de diseño por tarjetas para alternar las pantallas. */
+    /** Administrador de vistas mediante tarjetas. */
     private final CardLayout cardLayout;
 
-    /** Etiqueta que despliega el título principal del módulo en uso. */
+    /** Contenedor principal de toda la ventana. */
+    private final JPanel contenedorPrincipal;
+
+    /** Panel lateral de navegación. */
+    private final JPanel menuLateral;
+
+    /** Barra superior de información. */
+    private final JPanel barraSuperior;
+
+    /** Panel que contiene las opciones de navegación. */
+    private final JPanel panelOpcionesMenu;
+
+    /** Contenedor desplazable de las opciones del menú. */
+    private final JScrollPane scrollOpcionesMenu;
+
+    /** Etiqueta del título del módulo actual. */
     private final JLabel lblTitulo;
 
-    /** Etiqueta secundaria que muestra la ruta de navegación (ej. "Inicio / Clientes"). */
+    /** Etiqueta de navegación secundaria. */
     private final JLabel lblModulo;
 
-    // ==========================================
-    // NAVEGACIÓN
-    // ==========================================
+    /** Panel de información del módulo. */
+    private final JPanel panelInformacionModulo;
 
-    /** Mapa asociativo de botones del menú lateral indexados por el ID de cada módulo. */
+    /** Panel del perfil del usuario. */
+    private final JPanel panelPerfilUsuario;
+
+    /** Nombre del usuario. */
+    private final JLabel lblNombreUsuario;
+
+    /** Descripción del perfil. */
+    private final JLabel lblRolUsuario;
+
+    /** Avatar del usuario. */
+    private final JLabel lblAvatar;
+
+    // =====================================================
+    // 2. NAVEGACIÓN Y MÓDULOS
+    // =====================================================
+
+    /** Botones asociados a los módulos registrados. */
     private final Map<String, BotonNavegacion> botones;
 
-    /** Mapa de módulos registrados indexados por su identificador único. */
+    /** Módulos registrados en la aplicación. */
     private final Map<String, IModuloVista> modulos;
 
-    /** Identificador del módulo actualmente visible en pantalla. */
+    /** Identificador del módulo actualmente visible. */
     private String moduloActual;
 
-    // ==========================================
-    // CONSTRUCTOR
-    // ==========================================
+    // =====================================================
+    // 3. DIMENSIONES ADAPTABLES
+    // =====================================================
+
+    /** Ancho preferido del menú lateral. */
+    private int anchoMenuActual;
+
+    /** Ancho mínimo del menú lateral. */
+    private static final int ANCHO_MENU_MINIMO = 210;
+
+    /** Ancho máximo del menú lateral. */
+    private static final int ANCHO_MENU_MAXIMO = 270;
+
+    /** Porcentaje aproximado de la ventana destinado al menú. */
+    private static final double PROPORCION_MENU = 0.19;
+
+    /** Ancho de referencia para calcular la distribución. */
+    private static final int ANCHO_REFERENCIA = 1280;
+
+    /** Separación horizontal de la ventana en modo compacto. */
+    private static final int MARGEN_COMPACTO = 16;
+
+    /** Separación horizontal de la ventana en modo amplio. */
+    private static final int MARGEN_AMPLIO = 24;
+
+    /** Indica si la ventana está utilizando una distribución compacta. */
+    private boolean modoCompacto;
+
+    // =====================================================
+    // 4. CONSTRUCTOR
+    // =====================================================
 
     /**
-     * Construye e inicializa la ventana principal con la lista de módulos y la pantalla inicial.
+     * Construye la ventana principal.
      *
-     * @param modulos Lista de módulos a registrar ({@link IModuloVista}).
-     * @param moduloInicial Identificador del módulo que debe mostrarse al arrancar.
-     * @throws IllegalArgumentException Si la lista de módulos es nula o vacía, o si el módulo inicial no existe.
+     * @param listaModulos Módulos que se registrarán.
+     * @param moduloInicial Identificador del módulo inicial.
      */
     public MainFrame(
-            List<IModuloVista> modulos,
+            List<IModuloVista> listaModulos,
             String moduloInicial) {
 
         super("Los Atuendos | Sistema de Gestión");
@@ -79,82 +140,120 @@ public class MainFrame extends JFrame {
         this.modulos = new LinkedHashMap<>();
         this.botones = new LinkedHashMap<>();
 
-        // Registrar y validar los módulos proporcionados
-        registrarModulos(modulos);
+        // Registrar y validar los módulos.
+        registrarModulos(listaModulos);
 
-        // Validar que el módulo inicial exista en la colección registrada
-        if (!this.modulos.containsKey(moduloInicial)) {
+        // Comprobar que exista el módulo inicial.
+        if (moduloInicial == null
+                || !this.modulos.containsKey(moduloInicial)) {
+
             throw new IllegalArgumentException(
                     "El módulo inicial no está registrado: "
                             + moduloInicial
             );
         }
 
-        // Configurar propiedades de tamaño y centrado del JFrame
+        // Configurar propiedades generales de la ventana.
         configurarVentana();
 
-        this.lblTitulo = new JLabel();
-        this.lblModulo = new JLabel();
+        // Inicializar etiquetas.
+        lblTitulo = new JLabel();
+        lblModulo = new JLabel();
 
-        // Configurar panel de contenido con CardLayout
-        this.cardLayout = new CardLayout();
-        this.panelContenido = new JPanel(cardLayout);
-        this.panelContenido.setBackground(FONDO);
+        // Inicializar información del usuario.
+        lblNombreUsuario = new JLabel("Administrador");
+        lblRolUsuario = new JLabel("Gestión del sistema");
+        lblAvatar = new JLabel("AD");
 
-        // Construir secciones estructurales de la interfaz
-        this.menuLateral = crearMenuLateral();
-        this.barraSuperior = crearBarraSuperior();
+        // Inicializar contenedor central.
+        cardLayout = new CardLayout();
 
-        // Registrar los componentes visuales de cada módulo en el CardLayout
+        panelContenido = new JPanel(cardLayout);
+        panelContenido.setBackground(FONDO);
+        panelContenido.setOpaque(true);
+
+        // Inicializar panel de navegación.
+        panelOpcionesMenu = crearOpcionesMenu();
+
+        scrollOpcionesMenu = crearScrollMenu();
+
+        // Construir menú lateral.
+        menuLateral = crearMenuLateral();
+
+        // Construir barra superior.
+        panelInformacionModulo = crearInformacionModulo();
+        panelPerfilUsuario = crearPerfilUsuario();
+
+        barraSuperior = crearBarraSuperior();
+
+        // Inicializar contenedor principal.
+        contenedorPrincipal = new JPanel(new BorderLayout());
+
+        contenedorPrincipal.setBackground(FONDO);
+        contenedorPrincipal.setOpaque(true);
+
+        // Registrar vistas.
         registrarVistas();
 
-        // Ensamblar la distribución global de la ventana
+        // Construir distribución.
         construirLayout();
 
-        // Desplegar el módulo inicial configurado
+        // Configurar adaptación a cambios de tamaño.
+        configurarAdaptabilidad();
+
+        // Mostrar módulo inicial.
         mostrarModulo(moduloInicial);
+
+        // Centrar la ventana.
+        setLocationRelativeTo(null);
     }
 
-    // ==========================================
-    // REGISTRO DE MÓDULOS
-    // ==========================================
+    // =====================================================
+    // 5. REGISTRO Y VALIDACIÓN DE MÓDULOS
+    // =====================================================
 
     /**
-     * Valida y almacena la lista de módulos en el mapa interno asegurando unicidad de IDs.
-     *
-     * @param listaModulos Lista de módulos a examinar.
+     * Registra los módulos recibidos mediante sus interfaces.
      */
     private void registrarModulos(
             List<IModuloVista> listaModulos) {
 
         if (listaModulos == null || listaModulos.isEmpty()) {
+
             throw new IllegalArgumentException(
                     "Debe registrarse al menos un módulo."
             );
         }
 
         for (IModuloVista modulo : listaModulos) {
+
             validarModulo(modulo);
 
-            if (this.modulos.containsKey(modulo.getId())) {
+            if (modulos.containsKey(modulo.getId())) {
+
                 throw new IllegalArgumentException(
-                        "ID de módulo duplicado: " + modulo.getId()
+                        "ID de módulo duplicado: "
+                                + modulo.getId()
                 );
             }
 
-            this.modulos.put(modulo.getId(), modulo);
+            modulos.put(modulo.getId(), modulo);
         }
     }
 
     /**
-     * Valida que un módulo no sea nulo, contenga un ID válido y provea una vista gráfica no nula.
-     *
-     * @param modulo Instancia de módulo a validar.
+     * Comprueba la validez de un módulo.
      */
     private void validarModulo(IModuloVista modulo) {
 
-        if (modulo == null
-                || modulo.getId() == null
+        if (modulo == null) {
+
+            throw new IllegalArgumentException(
+                    "No se puede registrar un módulo nulo."
+            );
+        }
+
+        if (modulo.getId() == null
                 || modulo.getId().isBlank()) {
 
             throw new IllegalArgumentException(
@@ -162,7 +261,16 @@ public class MainFrame extends JFrame {
             );
         }
 
+        if (modulo.getTitulo() == null
+                || modulo.getTitulo().isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "El módulo debe proporcionar un título válido."
+            );
+        }
+
         if (modulo.getVista() == null) {
+
             throw new IllegalArgumentException(
                     "El módulo no proporciona una vista válida: "
                             + modulo.getId()
@@ -170,17 +278,30 @@ public class MainFrame extends JFrame {
         }
     }
 
+    // =====================================================
+    // 6. REGISTRO DINÁMICO DE MÓDULOS
+    // =====================================================
+
     /**
-     * Permite incorporar un módulo dinámicamente después de haber construido la ventana principal.
-     * Actualiza el menú lateral y repinta el contenedor.
+     * Incorpora un módulo después de construir la ventana.
      *
-     * @param modulo Nuevo módulo a registrar.
+     * La operación debe invocarse desde el EDT.
+     *
+     * @param modulo Nuevo módulo.
      */
     public void agregarModulo(IModuloVista modulo) {
+
+        if (!SwingUtilities.isEventDispatchThread()) {
+
+            throw new IllegalStateException(
+                    "agregarModulo debe ejecutarse en el EDT."
+            );
+        }
 
         validarModulo(modulo);
 
         if (modulos.containsKey(modulo.getId())) {
+
             throw new IllegalArgumentException(
                     "El módulo ya está registrado: "
                             + modulo.getId()
@@ -189,98 +310,144 @@ public class MainFrame extends JFrame {
 
         modulos.put(modulo.getId(), modulo);
 
-        // Añadir la vista al CardLayout
+        // Agregar la vista al contenedor CardLayout.
         panelContenido.add(
                 modulo.getVista(),
                 modulo.getId()
         );
 
-        // Reconstruir los botones del menú lateral para incluir la nueva opción
-        reconstruirMenuLateral();
+        // Crear el botón de navegación.
+        agregarBotonNavegacion(modulo);
 
-        menuLateral.revalidate();
-        menuLateral.repaint();
+        // Actualizar distribución visual.
+        actualizarDistribucion();
 
         panelContenido.revalidate();
         panelContenido.repaint();
     }
 
-    // ==========================================
-    // CONFIGURACIÓN DE VENTANA
-    // ==========================================
+    // =====================================================
+    // 7. CONFIGURACIÓN DE LA VENTANA
+    // =====================================================
 
     /**
-     * Configura el comportamiento de cierre, dimensiones por defecto y mínimas, y centrado en pantalla.
+     * Configura dimensiones iniciales y mínimas según
+     * el espacio disponible en la pantalla.
+     *
+     * Evita establecer dimensiones mínimas superiores
+     * a la resolución disponible.
      */
     private void configurarVentana() {
 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        setSize(ANCHO_VENTANA, ALTO_VENTANA);
-
         setMinimumSize(new Dimension(
-                ANCHO_MINIMO,
-                ALTO_MINIMO
+                ANCHO_MINIMO_ADAPTADO(),
+                ALTO_MINIMO_ADAPTADO()
         ));
+
+        Rectangle pantalla =
+                GraphicsEnvironment
+                        .getLocalGraphicsEnvironment()
+                        .getMaximumWindowBounds();
+
+        int anchoDisponible = pantalla.width;
+        int altoDisponible = pantalla.height;
+
+        int anchoInicial = Math.min(
+                ANCHO_VENTANA,
+                anchoDisponible
+        );
+
+        int altoInicial = Math.min(
+                ALTO_VENTANA,
+                altoDisponible
+        );
+
+        setSize(
+                Math.max(getMinimumSize().width, anchoInicial),
+                Math.max(getMinimumSize().height, altoInicial)
+        );
 
         setLocationRelativeTo(null);
     }
 
-    // ==========================================
-    // CONSTRUCCIÓN DEL LAYOUT
-    // ==========================================
+    /**
+     * Calcula un ancho mínimo compatible con la pantalla.
+     */
+    private int ANCHO_MINIMO_ADAPTADO() {
+
+        Rectangle pantalla =
+                GraphicsEnvironment
+                        .getLocalGraphicsEnvironment()
+                        .getMaximumWindowBounds();
+
+        return Math.min(ANCHO_MINIMO, pantalla.width);
+    }
 
     /**
-     * Ensambla el contenedor principal con el menú lateral al oeste y el área de trabajo al centro.
+     * Calcula un alto mínimo compatible con la pantalla.
+     */
+    private int ALTO_MINIMO_ADAPTADO() {
+
+        Rectangle pantalla =
+                GraphicsEnvironment
+                        .getLocalGraphicsEnvironment()
+                        .getMaximumWindowBounds();
+
+        return Math.min(ALTO_MINIMO, pantalla.height);
+    }
+
+    // =====================================================
+    // 8. CONSTRUCCIÓN DEL LAYOUT GENERAL
+    // =====================================================
+
+    /**
+     * Ensambla el menú lateral y el área principal.
      */
     private void construirLayout() {
-
-        JPanel contenedor = new JPanel(
-                new BorderLayout()
-        );
-
-        contenedor.setBackground(FONDO);
 
         JPanel areaPrincipal = new JPanel(
                 new BorderLayout()
         );
 
         areaPrincipal.setBackground(FONDO);
+        areaPrincipal.setOpaque(true);
 
-        // Barra superior de encabezado
+        // Encabezado superior.
         areaPrincipal.add(
                 barraSuperior,
                 BorderLayout.NORTH
         );
 
-        // Panel de contenido central dinámico
+        // Contenido dinámico.
         areaPrincipal.add(
                 panelContenido,
                 BorderLayout.CENTER
         );
 
-        // Menú de navegación lateral
-        contenedor.add(
+        // Menú lateral.
+        contenedorPrincipal.add(
                 menuLateral,
                 BorderLayout.WEST
         );
 
-        contenedor.add(
+        // Área de trabajo.
+        contenedorPrincipal.add(
                 areaPrincipal,
                 BorderLayout.CENTER
         );
 
-        setContentPane(contenedor);
+        setContentPane(contenedorPrincipal);
     }
 
-    // ==========================================
-    // MENÚ LATERAL
-    // ==========================================
+    // =====================================================
+    // 9. MENÚ LATERAL
+    // =====================================================
 
     /**
-     * Construye el panel lateral (sidebar) con ancho fijo, borde divisorio y estructura norte/centro/sur.
-     *
-     * @return Panel lateral ensamblado.
+     * Construye el menú lateral con una distribución
+     * vertical flexible.
      */
     private JPanel crearMenuLateral() {
 
@@ -288,30 +455,36 @@ public class MainFrame extends JFrame {
                 new BorderLayout()
         );
 
-        sidebar.setPreferredSize(new Dimension(
-                ANCHO_MENU_LATERAL,
-                0
-        ));
-
         sidebar.setBackground(SUPERFICIE);
+        sidebar.setOpaque(true);
 
-        // Borde derecho de división sutil
+        // Ancho inicial adaptable.
+        anchoMenuActual = calcularAnchoMenu();
+
+        sidebar.setPreferredSize(
+                new Dimension(anchoMenuActual, 0)
+        );
+
+        // Borde divisorio.
         sidebar.setBorder(
                 BorderFactory.createMatteBorder(
                         0, 0, 0, 1, BORDE
                 )
         );
 
+        // Encabezado corporativo.
         sidebar.add(
                 crearEncabezadoMenu(),
                 BorderLayout.NORTH
         );
 
+        // Opciones desplazables.
         sidebar.add(
-                crearOpcionesMenu(),
+                scrollOpcionesMenu,
                 BorderLayout.CENTER
         );
 
+        // Pie del menú.
         sidebar.add(
                 crearPieMenu(),
                 BorderLayout.SOUTH
@@ -320,37 +493,39 @@ public class MainFrame extends JFrame {
         return sidebar;
     }
 
-    // ==========================================
-    // ENCABEZADO DEL MENÚ
-    // ==========================================
+    // =====================================================
+    // 10. ENCABEZADO DEL MENÚ
+    // =====================================================
 
     /**
-     * Crea el membrete corporativo superior del menú lateral (Logotipo y subtítulo del sistema).
-     *
-     * @return Panel de encabezado del menú lateral.
+     * Construye la identidad corporativa.
      */
     private JPanel crearEncabezadoMenu() {
 
         JPanel encabezado = new JPanel();
 
         encabezado.setBackground(SUPERFICIE);
+        encabezado.setOpaque(true);
 
-        encabezado.setLayout(new BoxLayout(
-                encabezado,
-                BoxLayout.Y_AXIS
-        ));
+        encabezado.setLayout(
+                new BoxLayout(
+                        encabezado,
+                        BoxLayout.Y_AXIS
+                )
+        );
 
-        encabezado.setBorder(new EmptyBorder(
-                28, 22, 28, 22
-        ));
+        encabezado.setBorder(
+                new EmptyBorder(
+                        26,
+                        ESPACIADO_LG,
+                        24,
+                        ESPACIADO_LG
+                )
+        );
 
         JLabel nombre = crearEtiqueta(
                 "LOS ATUENDOS",
-                new Font(
-                        FUENTE_PRINCIPAL,
-                        Font.BOLD,
-                        20
-                ),
+                FUENTE_LOGO,
                 PRIMARIO
         );
 
@@ -359,6 +534,9 @@ public class MainFrame extends JFrame {
                 FUENTE_PEQUENA,
                 TEXTO_SECUNDARIO
         );
+
+        nombre.setAlignmentX(Component.LEFT_ALIGNMENT);
+        descripcion.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         encabezado.add(nombre);
 
@@ -371,32 +549,35 @@ public class MainFrame extends JFrame {
         return encabezado;
     }
 
-    // ==========================================
-    // OPCIONES DE NAVEGACIÓN
-    // ==========================================
+    // =====================================================
+    // 11. OPCIONES DE NAVEGACIÓN
+    // =====================================================
 
     /**
-     * Crea la botonera vertical con las opciones de cada módulo registrado.
-     *
-     * @return Panel con los botones de navegación.
+     * Crea el contenedor vertical de opciones.
      */
     private JPanel crearOpcionesMenu() {
 
         JPanel opciones = new JPanel();
 
         opciones.setBackground(SUPERFICIE);
+        opciones.setOpaque(true);
 
-        opciones.setLayout(new BoxLayout(
-                opciones,
-                BoxLayout.Y_AXIS
-        ));
+        opciones.setLayout(
+                new BoxLayout(
+                        opciones,
+                        BoxLayout.Y_AXIS
+                )
+        );
 
-        opciones.setBorder(new EmptyBorder(
-                ESPACIADO_SM,
-                12,
-                ESPACIADO_SM,
-                12
-        ));
+        opciones.setBorder(
+                new EmptyBorder(
+                        ESPACIADO_SM,
+                        ESPACIADO_SM + ESPACIADO_XS,
+                        ESPACIADO_SM,
+                        ESPACIADO_SM + ESPACIADO_XS
+                )
+        );
 
         JLabel lblGeneral = crearEtiqueta(
                 "GENERAL",
@@ -404,12 +585,16 @@ public class MainFrame extends JFrame {
                 TEXTO_SECUNDARIO
         );
 
-        lblGeneral.setBorder(new EmptyBorder(
-                ESPACIADO_SM,
-                10,
-                5,
-                0
-        ));
+        lblGeneral.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        lblGeneral.setBorder(
+                new EmptyBorder(
+                        ESPACIADO_SM,
+                        ESPACIADO_SM,
+                        ESPACIADO_XS,
+                        0
+                )
+        );
 
         opciones.add(lblGeneral);
 
@@ -417,32 +602,12 @@ public class MainFrame extends JFrame {
                 Box.createVerticalStrut(ESPACIADO_SM)
         );
 
-        // Iterar los módulos y crear su botón interactivo
+        // Registrar botones iniciales.
         for (IModuloVista modulo : modulos.values()) {
 
-            BotonNavegacion boton = new BotonNavegacion(
-                    modulo.getIcono(),
-                    modulo.getTitulo()
-            );
-
-            boton.setMaximumSize(new Dimension(
-                    Integer.MAX_VALUE,
-                    ALTO_BOTON
-            ));
-
-            boton.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-            // Al presionar el botón, conmutar hacia la pantalla del módulo
-            boton.addActionListener(e ->
-                    mostrarModulo(modulo.getId())
-            );
-
-            botones.put(modulo.getId(), boton);
-
-            opciones.add(boton);
-
-            opciones.add(
-                    Box.createVerticalStrut(5)
+            agregarBotonAContenedor(
+                    opciones,
+                    modulo
             );
         }
 
@@ -450,30 +615,177 @@ public class MainFrame extends JFrame {
     }
 
     /**
-     * Reconstruye las opciones del menú conservando el módulo que se encuentra seleccionado.
+     * Construye un botón de navegación y lo agrega
+     * al contenedor indicado.
+     */
+    private void agregarBotonAContenedor(
+            JPanel contenedor,
+            IModuloVista modulo) {
+
+        BotonNavegacion boton = new BotonNavegacion(
+                modulo.getIcono(),
+                modulo.getTitulo()
+        );
+
+        configurarBotonNavegacion(
+                boton,
+                modulo
+        );
+
+        botones.put(
+                modulo.getId(),
+                boton
+        );
+
+        contenedor.add(boton);
+
+        contenedor.add(
+                Box.createVerticalStrut(ESPACIADO_XS)
+        );
+    }
+
+    /**
+     * Configura el comportamiento y las propiedades
+     * del botón de navegación.
+     */
+    private void configurarBotonNavegacion(
+            BotonNavegacion boton,
+            IModuloVista modulo) {
+
+        boton.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        boton.setMaximumSize(
+                new Dimension(
+                        Integer.MAX_VALUE,
+                        ALTO_BOTON
+                )
+        );
+
+        boton.setMinimumSize(
+                new Dimension(
+                        0,
+                        ALTO_BOTON
+                )
+        );
+
+        // El texto completo puede consultarse mediante tooltip.
+        boton.setToolTipText(modulo.getTitulo());
+
+        boton.getAccessibleContext().setAccessibleName(
+                modulo.getTitulo()
+        );
+
+        boton.addActionListener(e ->
+                mostrarModulo(modulo.getId())
+        );
+    }
+
+    /**
+     * Agrega un nuevo botón al menú existente.
+     */
+    private void agregarBotonNavegacion(
+            IModuloVista modulo) {
+
+        agregarBotonAContenedor(
+                panelOpcionesMenu,
+                modulo
+        );
+
+        panelOpcionesMenu.revalidate();
+        panelOpcionesMenu.repaint();
+    }
+
+    // =====================================================
+    // 12. SCROLL DEL MENÚ
+    // =====================================================
+
+    /**
+     * Construye el contenedor desplazable de opciones.
+     */
+    private JScrollPane crearScrollMenu() {
+
+        JScrollPane scroll = new JScrollPane(
+                panelOpcionesMenu
+        );
+
+        scroll.setBorder(null);
+
+        scroll.setBackground(SUPERFICIE);
+
+        scroll.getViewport().setBackground(SUPERFICIE);
+
+        scroll.setHorizontalScrollBarPolicy(
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+        );
+
+        scroll.setVerticalScrollBarPolicy(
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED
+        );
+
+        scroll.getVerticalScrollBar().setUnitIncrement(16);
+
+        scroll.setViewportBorder(null);
+
+        return scroll;
+    }
+
+    // =====================================================
+    // 13. RECONSTRUCCIÓN DEL MENÚ
+    // =====================================================
+
+    /**
+     * Reconstruye las opciones sin reemplazar el contenedor
+     * desplazable ni alterar el estado de navegación.
      */
     private void reconstruirMenuLateral() {
 
-        JPanel nuevasOpciones = crearOpcionesMenu();
+        panelOpcionesMenu.removeAll();
 
-        menuLateral.remove(1);
+        botones.clear();
 
-        menuLateral.add(
-                nuevasOpciones,
-                BorderLayout.CENTER
+        JLabel lblGeneral = crearEtiqueta(
+                "GENERAL",
+                FUENTE_ETIQUETA,
+                TEXTO_SECUNDARIO
         );
 
+        lblGeneral.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        lblGeneral.setBorder(
+                new EmptyBorder(
+                        ESPACIADO_SM,
+                        ESPACIADO_SM,
+                        ESPACIADO_XS,
+                        0
+                )
+        );
+
+        panelOpcionesMenu.add(lblGeneral);
+
+        panelOpcionesMenu.add(
+                Box.createVerticalStrut(ESPACIADO_SM)
+        );
+
+        for (IModuloVista modulo : modulos.values()) {
+
+            agregarBotonAContenedor(
+                    panelOpcionesMenu,
+                    modulo
+            );
+        }
+
         actualizarEstadoBotones();
+
+        panelOpcionesMenu.revalidate();
+        panelOpcionesMenu.repaint();
     }
 
-    // ==========================================
-    // PIE DEL MENÚ
-    // ==========================================
+    // =====================================================
+    // 14. PIE DEL MENÚ
+    // =====================================================
 
     /**
-     * Crea el pie inferior del menú lateral con la versión del software.
-     *
-     * @return Panel de pie de página.
+     * Construye el pie del menú lateral.
      */
     private JPanel crearPieMenu() {
 
@@ -482,10 +794,16 @@ public class MainFrame extends JFrame {
         );
 
         pie.setBackground(SUPERFICIE);
+        pie.setOpaque(true);
 
-        pie.setBorder(new EmptyBorder(
-                15, 20, 20, 20
-        ));
+        pie.setBorder(
+                new EmptyBorder(
+                        ESPACIADO_MD,
+                        ESPACIADO_LG,
+                        ESPACIADO_LG,
+                        ESPACIADO_LG
+                )
+        );
 
         JLabel version = crearEtiqueta(
                 "Los Atuendos · v1.0.0",
@@ -493,27 +811,32 @@ public class MainFrame extends JFrame {
                 TEXTO_SECUNDARIO
         );
 
-        pie.add(version, BorderLayout.WEST);
+        pie.add(
+                version,
+                BorderLayout.WEST
+        );
 
         return pie;
     }
 
-    // ==========================================
-    // BARRA SUPERIOR
-    // ==========================================
+    // =====================================================
+    // 15. BARRA SUPERIOR
+    // =====================================================
 
     /**
-     * Construye la barra horizontal superior con información del módulo y perfil de usuario.
-     *
-     * @return Panel de barra superior.
+     * Construye el encabezado principal.
      */
     private JPanel crearBarraSuperior() {
 
         JPanel header = new JPanel(
-                new BorderLayout()
+                new BorderLayout(
+                        ESPACIADO_MD,
+                        0
+                )
         );
 
         header.setBackground(SUPERFICIE);
+        header.setOpaque(true);
 
         header.setBorder(
                 BorderFactory.createCompoundBorder(
@@ -521,35 +844,33 @@ public class MainFrame extends JFrame {
                                 0, 0, 1, 0, BORDE
                         ),
                         new EmptyBorder(
-                                18,
+                                ESPACIADO_MD,
                                 ESPACIADO_LG,
-                                18,
+                                ESPACIADO_MD,
                                 ESPACIADO_LG
                         )
                 )
         );
 
         header.add(
-                crearInformacionModulo(),
-                BorderLayout.WEST
+                panelInformacionModulo,
+                BorderLayout.CENTER
         );
 
         header.add(
-                crearPerfilUsuario(),
+                panelPerfilUsuario,
                 BorderLayout.EAST
         );
 
         return header;
     }
 
-    // ==========================================
-    // INFORMACIÓN DEL MÓDULO
-    // ==========================================
+    // =====================================================
+    // 16. INFORMACIÓN DEL MÓDULO
+    // =====================================================
 
     /**
-     * Crea el bloque textual con el título y la ruta de navegación (breadcrumb) en la cabecera.
-     *
-     * @return Panel informativo.
+     * Construye el bloque de título y breadcrumb.
      */
     private JPanel crearInformacionModulo() {
 
@@ -557,16 +878,21 @@ public class MainFrame extends JFrame {
 
         informacion.setOpaque(false);
 
-        informacion.setLayout(new BoxLayout(
-                informacion,
-                BoxLayout.Y_AXIS
-        ));
+        informacion.setLayout(
+                new BoxLayout(
+                        informacion,
+                        BoxLayout.Y_AXIS
+                )
+        );
 
         lblTitulo.setFont(FUENTE_SUBTITULO);
         lblTitulo.setForeground(TEXTO);
 
         lblModulo.setFont(FUENTE_PEQUENA);
         lblModulo.setForeground(TEXTO_SECUNDARIO);
+
+        lblTitulo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        lblModulo.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         informacion.add(lblTitulo);
 
@@ -579,80 +905,80 @@ public class MainFrame extends JFrame {
         return informacion;
     }
 
-    // ==========================================
-    // PERFIL DEL USUARIO
-    // ==========================================
+    // =====================================================
+    // 17. PERFIL DEL USUARIO
+    // =====================================================
 
     /**
-     * Construye el widget con el avatar y rol del usuario en la esquina superior derecha.
-     *
-     * @return Panel de perfil.
+     * Construye el perfil de usuario de la barra superior.
      */
     private JPanel crearPerfilUsuario() {
 
         JPanel perfil = new JPanel(
                 new FlowLayout(
                         FlowLayout.RIGHT,
-                        10,
+                        ESPACIADO_SM,
                         0
                 )
         );
 
         perfil.setOpaque(false);
 
-        JLabel avatar = new JLabel("AD");
-
-        avatar.setHorizontalAlignment(
+        // Avatar.
+        lblAvatar.setHorizontalAlignment(
                 SwingConstants.CENTER
         );
 
-        avatar.setOpaque(true);
+        lblAvatar.setVerticalAlignment(
+                SwingConstants.CENTER
+        );
 
-        avatar.setBackground(PRIMARIO_CLARO);
-        avatar.setForeground(PRIMARIO);
-        avatar.setFont(FUENTE_ETIQUETA);
+        lblAvatar.setOpaque(true);
 
-        avatar.setPreferredSize(new Dimension(
-                TAMANO_AVATAR,
-                TAMANO_AVATAR
-        ));
+        lblAvatar.setBackground(PRIMARIO_CLARO);
+        lblAvatar.setForeground(PRIMARIO);
+        lblAvatar.setFont(FUENTE_ETIQUETA);
 
+        lblAvatar.setPreferredSize(
+                new Dimension(
+                        TAMANO_AVATAR,
+                        TAMANO_AVATAR
+                )
+        );
+
+        // Información del usuario.
         JPanel usuario = new JPanel();
 
         usuario.setOpaque(false);
 
-        usuario.setLayout(new BoxLayout(
-                usuario,
-                BoxLayout.Y_AXIS
-        ));
-
-        JLabel nombre = crearEtiqueta(
-                "Administrador",
-                FUENTE_ETIQUETA,
-                TEXTO
+        usuario.setLayout(
+                new BoxLayout(
+                        usuario,
+                        BoxLayout.Y_AXIS
+                )
         );
 
-        JLabel rol = crearEtiqueta(
-                "Gestión del sistema",
-                FUENTE_PEQUENA,
-                TEXTO_SECUNDARIO
-        );
+        lblNombreUsuario.setFont(FUENTE_ETIQUETA);
+        lblNombreUsuario.setForeground(TEXTO);
 
-        usuario.add(nombre);
-        usuario.add(rol);
+        lblRolUsuario.setFont(FUENTE_PEQUENA);
+        lblRolUsuario.setForeground(TEXTO_SECUNDARIO);
 
-        perfil.add(avatar);
+        usuario.add(lblNombreUsuario);
+        usuario.add(lblRolUsuario);
+
+        perfil.add(lblAvatar);
         perfil.add(usuario);
 
         return perfil;
     }
 
-    // ==========================================
-    // REGISTRO DE VISTAS
-    // ==========================================
+    // =====================================================
+    // 18. REGISTRO DE VISTAS
+    // =====================================================
 
     /**
-     * Agrega las vistas de todos los módulos registrados al CardLayout del panel central.
+     * Agrega todas las vistas al CardLayout.
      */
     private void registrarVistas() {
 
@@ -665,16 +991,25 @@ public class MainFrame extends JFrame {
         });
     }
 
-    // ==========================================
-    // NAVEGACIÓN ENTRE MÓDULOS
-    // ==========================================
+    // =====================================================
+    // 19. NAVEGACIÓN ENTRE MÓDULOS
+    // =====================================================
 
     /**
-     * Conmuta la vista activa hacia el módulo indicado por su identificador.
+     * Muestra el módulo solicitado.
      *
-     * @param id Clave identificadora del módulo a desplegar.
+     * @param id Identificador del módulo.
      */
     public void mostrarModulo(String id) {
+
+        if (!SwingUtilities.isEventDispatchThread()) {
+
+            SwingUtilities.invokeLater(() ->
+                    mostrarModulo(id)
+            );
+
+            return;
+        }
 
         IModuloVista modulo = modulos.get(id);
 
@@ -682,42 +1017,277 @@ public class MainFrame extends JFrame {
             return;
         }
 
-        // Mostrar la tarjeta correspondiente en CardLayout
-        cardLayout.show(panelContenido, id);
+        // Mostrar la tarjeta correspondiente.
+        cardLayout.show(
+                panelContenido,
+                id
+        );
 
-        // Actualizar textos informativos de la cabecera
-        lblTitulo.setText(modulo.getTitulo());
+        // Actualizar título.
+        lblTitulo.setText(
+                modulo.getTitulo()
+        );
 
+        // Actualizar ruta de navegación.
         lblModulo.setText(
                 "Inicio  /  " + modulo.getTitulo()
         );
 
+        // Actualizar módulo actual.
         moduloActual = id;
 
-        // Actualizar el estado visual activo en los botones del menú
+        // Actualizar resaltado de navegación.
         actualizarEstadoBotones();
+
+        barraSuperior.revalidate();
+        barraSuperior.repaint();
+
+        panelContenido.revalidate();
+        panelContenido.repaint();
     }
 
+    // =====================================================
+    // 20. ESTADO DE LOS BOTONES
+    // =====================================================
+
     /**
-     * Actualiza el resaltado visual de los botones del menú lateral marcando solo el activo.
+     * Actualiza el estado visual de los botones.
      */
     private void actualizarEstadoBotones() {
 
-        botones.forEach((clave, boton) ->
-                boton.setActivo(clave.equals(moduloActual))
+        botones.forEach((clave, boton) -> {
+
+            boton.setActivo(
+                    clave.equals(moduloActual)
+            );
+        });
+    }
+
+    // =====================================================
+    // 21. ADAPTABILIDAD DE LA VENTANA
+    // =====================================================
+
+    /**
+     * Registra el listener encargado de adaptar la distribución
+     * cuando cambia el tamaño de la ventana.
+     */
+    private void configurarAdaptabilidad() {
+
+        addComponentListener(
+                new ComponentAdapter() {
+
+                    @Override
+                    public void componentResized(
+                            ComponentEvent evento) {
+
+                        actualizarDistribucion();
+                    }
+                }
+        );
+
+        // Aplicar distribución inicial.
+        actualizarDistribucion();
+    }
+
+    /**
+     * Calcula y aplica las dimensiones de los elementos
+     * principales según el ancho disponible.
+     */
+    private void actualizarDistribucion() {
+
+        if (getWidth() <= 0) {
+            return;
+        }
+
+        int anchoVentana = getWidth();
+
+        // Calcular el ancho del menú.
+        int nuevoAnchoMenu = calcularAnchoMenu();
+
+        // Actualizar menú solo cuando exista un cambio.
+        if (nuevoAnchoMenu != anchoMenuActual) {
+
+            anchoMenuActual = nuevoAnchoMenu;
+
+            menuLateral.setPreferredSize(
+                    new Dimension(
+                            anchoMenuActual,
+                            0
+                    )
+            );
+        }
+
+        // Determinar si se utiliza distribución compacta.
+        boolean nuevoModoCompacto =
+                anchoVentana < ANCHO_REFERENCIA;
+
+        if (nuevoModoCompacto != modoCompacto) {
+
+            modoCompacto = nuevoModoCompacto;
+
+            actualizarEspaciadoEncabezado();
+        }
+
+        // Actualizar el tamaño máximo de los botones.
+        Dimension dimensionBoton = new Dimension(
+                Integer.MAX_VALUE,
+                ALTO_BOTON
+        );
+
+        for (BotonNavegacion boton : botones.values()) {
+
+            boton.setMaximumSize(dimensionBoton);
+        }
+
+        menuLateral.revalidate();
+        menuLateral.repaint();
+
+        barraSuperior.revalidate();
+        barraSuperior.repaint();
+    }
+
+    /**
+     * Calcula dinámicamente el ancho del menú lateral.
+     *
+     * Mantiene un rango mínimo y máximo para evitar
+     * que el menú ocupe demasiado espacio.
+     */
+    private int calcularAnchoMenu() {
+
+        int anchoVentana = getWidth();
+
+        if (anchoVentana <= 0) {
+            return ANCHO_MENU_LATERAL;
+        }
+
+        int anchoCalculado = (int) (
+                anchoVentana * PROPORCION_MENU
+        );
+
+        return Math.max(
+                ANCHO_MENU_MINIMO,
+                Math.min(
+                        anchoCalculado,
+                        ANCHO_MENU_MAXIMO
+                )
         );
     }
 
-    // ==========================================
-    // CONSULTA DE MÓDULO ACTUAL
-    // ==========================================
+    /**
+     * Ajusta los márgenes de la barra superior según
+     * el espacio horizontal disponible.
+     */
+    private void actualizarEspaciadoEncabezado() {
+
+        int margen = modoCompacto
+                ? MARGEN_COMPACTO
+                : MARGEN_AMPLIO;
+
+        barraSuperior.setBorder(
+                BorderFactory.createCompoundBorder(
+                        BorderFactory.createMatteBorder(
+                                0, 0, 1, 0, BORDE
+                        ),
+                        new EmptyBorder(
+                                ESPACIADO_MD,
+                                margen,
+                                ESPACIADO_MD,
+                                margen
+                        )
+                )
+        );
+
+        // En ventanas estrechas se oculta la descripción
+        // secundaria del perfil, conservando el avatar
+        // y el nombre del usuario.
+        lblRolUsuario.setVisible(!modoCompacto);
+
+        barraSuperior.revalidate();
+        barraSuperior.repaint();
+    }
+
+    // =====================================================
+    // 22. CONFIGURACIÓN DEL PERFIL
+    // =====================================================
 
     /**
-     * Obtiene el identificador del módulo actualmente seleccionado.
+     * Permite actualizar la información visual del usuario.
      *
-     * @return Clave del módulo activo.
+     * @param nombre Nombre del usuario.
+     * @param rol Descripción o cargo.
+     * @param iniciales Iniciales del avatar.
+     */
+    public void configurarPerfilUsuario(
+            String nombre,
+            String rol,
+            String iniciales) {
+
+        if (!SwingUtilities.isEventDispatchThread()) {
+
+            SwingUtilities.invokeLater(() ->
+                    configurarPerfilUsuario(
+                            nombre,
+                            rol,
+                            iniciales
+                    )
+            );
+
+            return;
+        }
+
+        lblNombreUsuario.setText(
+                nombre == null || nombre.isBlank()
+                        ? "Usuario"
+                        : nombre
+        );
+
+        lblRolUsuario.setText(
+                rol == null ? "" : rol
+        );
+
+        lblAvatar.setText(
+                iniciales == null || iniciales.isBlank()
+                        ? "US"
+                        : iniciales
+        );
+
+        panelPerfilUsuario.revalidate();
+        panelPerfilUsuario.repaint();
+    }
+
+    // =====================================================
+    // 23. CONSULTA DEL MÓDULO ACTUAL
+    // =====================================================
+
+    /**
+     * Obtiene el identificador del módulo actualmente visible.
+     *
+     * @return Identificador del módulo.
      */
     public String getModuloActual() {
         return moduloActual;
+    }
+
+    // =====================================================
+    // 24. CONSULTA DE MÓDULOS
+    // =====================================================
+
+    /**
+     * Comprueba si un módulo está registrado.
+     *
+     * @param id Identificador del módulo.
+     * @return true si existe.
+     */
+    public boolean contieneModulo(String id) {
+        return modulos.containsKey(id);
+    }
+
+    /**
+     * Obtiene la cantidad de módulos registrados.
+     *
+     * @return Número de módulos.
+     */
+    public int getCantidadModulos() {
+        return modulos.size();
     }
 }

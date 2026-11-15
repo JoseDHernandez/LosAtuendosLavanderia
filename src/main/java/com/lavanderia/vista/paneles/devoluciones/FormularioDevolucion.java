@@ -10,8 +10,8 @@ import com.lavanderia.patrones.facade.ISistemaFacade;
 import com.lavanderia.servicio.interfaces.IGestorAlquiler;
 import com.lavanderia.servicio.interfaces.IGestorDevoluciones;
 import com.lavanderia.validacion.ValidacionException;
-import com.lavanderia.vista.componentes.BotonPrincipal;
-import com.lavanderia.vista.componentes.BotonSecundario;
+import com.lavanderia.vista.componentes.SelectorFecha;
+import com.lavanderia.vista.paneles.comunes.PanelFormulario;
 
 import javax.swing.*;
 import java.awt.*;
@@ -24,7 +24,6 @@ import java.util.Objects;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
-/** Recoge los datos del formulario de devolucion y coordina las acciones de esa pantalla. */
 public class FormularioDevolucion extends JDialog {
 
     private final IGestorAlquiler gestorAlquiler;
@@ -34,17 +33,20 @@ public class FormularioDevolucion extends JDialog {
     private final Runnable alGuardar;
 
     private final JComboBox<OpcionDetalle> selectorDetalle;
-    private final JSpinner fechaDevolucion;
+    private final SelectorFecha fechaDevolucion;
     private final JComboBox<EstadoRevision> selectorEstado;
     private final JTextArea campoObservaciones;
 
     private final JLabel etiquetaDetalle;
 
+    private final PanelFormulario formulario;
+
+    private boolean guardando;
+
     // ==========================================
-    // CONSTRUCTORES
+    // CONSTRUCTOR DE REGISTRO
     // ==========================================
 
-    // Constructor para registrar una devolución.
     public FormularioDevolucion(
             Window propietario,
             ISistemaFacade sistemaFacade,
@@ -58,7 +60,10 @@ public class FormularioDevolucion extends JDialog {
         );
     }
 
-    // Constructor para editar una devolución.
+    // ==========================================
+    // CONSTRUCTOR DE REGISTRO Y ACTUALIZACIÓN
+    // ==========================================
+
     public FormularioDevolucion(
             Window propietario,
             ISistemaFacade sistemaFacade,
@@ -92,10 +97,9 @@ public class FormularioDevolucion extends JDialog {
         this.alGuardar = alGuardar;
 
         this.selectorDetalle = new JComboBox<>();
-        this.fechaDevolucion = crearSelectorFecha(
-                devolucion == null
-                        ? LocalDate.now()
-                        : devolucion.getFechaDevolucion()
+
+        this.fechaDevolucion = new SelectorFecha(
+                "Fecha de devolución"
         );
 
         this.selectorEstado = new JComboBox<>(
@@ -103,14 +107,23 @@ public class FormularioDevolucion extends JDialog {
         );
 
         this.campoObservaciones = new JTextArea(4, 30);
+
         this.etiquetaDetalle = new JLabel();
+
+        this.formulario = new PanelFormulario();
 
         inicializarComponentes();
         configurarSelectorDetalle();
+        configurarCampoObservaciones();
+
         cargarDetallesDisponibles();
 
-        if (devolucion != null) {
-            cargarDatosDevolucion(devolucion);
+        if (esEdicion()) {
+            cargarDatosDevolucion();
+        } else {
+            fechaDevolucion.setFecha(
+                    convertirFecha(LocalDate.now())
+            );
         }
     }
 
@@ -134,119 +147,96 @@ public class FormularioDevolucion extends JDialog {
         JPanel panelEncabezado = new JPanel();
 
         panelEncabezado.setLayout(
-                new BoxLayout(panelEncabezado, BoxLayout.Y_AXIS)
+                new BoxLayout(
+                        panelEncabezado,
+                        BoxLayout.Y_AXIS
+                )
         );
 
         panelEncabezado.setOpaque(false);
 
         JLabel titulo = crearEtiqueta(
-                devolucionEdicion == null
-                        ? "Información de la devolución"
-                        : "Editar devolución",
+                esEdicion()
+                        ? "Actualizar información de la devolución"
+                        : "Información de la devolución",
                 FUENTE_SUBTITULO,
                 TEXTO
         );
 
         JLabel descripcion = crearEtiqueta(
-                devolucionEdicion == null
-                        ? "Seleccione el detalle de alquiler y registre su devolución."
-                        : "Modifique la información de revisión de la devolución.",
+                esEdicion()
+                        ? "Modifique la fecha, el estado de revisión y las observaciones."
+                        : "Seleccione el detalle de alquiler y registre su devolución.",
                 FUENTE_NORMAL,
                 TEXTO_SECUNDARIO
         );
 
         panelEncabezado.add(titulo);
+
         panelEncabezado.add(
                 Box.createVerticalStrut(ESPACIADO_XS)
         );
+
         panelEncabezado.add(descripcion);
 
-        // Formulario.
-        JPanel formulario = new JPanel(
-                new GridLayout(0, 1, 0, ESPACIADO_MD)
-        );
-
-        formulario.setOpaque(false);
-
-        formulario.add(
+        // Campos.
+        formulario.agregarCampo(
                 crearCampo(
                         "Detalle del alquiler",
                         selectorDetalle
-                )
+                ),
+                0,
+                0,
+                2
         );
 
-        formulario.add(
-                crearCampo(
-                        "Fecha de devolución",
-                        fechaDevolucion
-                )
+        formulario.agregarCampo(
+                fechaDevolucion,
+                1,
+                0
         );
 
-        formulario.add(
+        formulario.agregarCampo(
                 crearCampo(
                         "Estado de revisión",
                         selectorEstado
-                )
+                ),
+                1,
+                1
         );
 
-        configurarCampoObservaciones();
-
-        formulario.add(
+        formulario.agregarCampo(
                 crearCampo(
                         "Observaciones",
                         new JScrollPane(campoObservaciones)
-                )
+                ),
+                2,
+                0,
+                2
         );
 
         etiquetaDetalle.setFont(FUENTE_PEQUENA);
         etiquetaDetalle.setForeground(TEXTO_SECUNDARIO);
 
-        // Contenedor del formulario.
-        JPanel panelContenido = new JPanel(
-                new BorderLayout(0, ESPACIADO_SM)
-        );
-
-        panelContenido.setOpaque(false);
-
-        panelContenido.add(
-                formulario,
-                BorderLayout.CENTER
-        );
-
-        panelContenido.add(
+        formulario.agregarCampo(
                 etiquetaDetalle,
-                BorderLayout.SOUTH
+                3,
+                0,
+                2
         );
 
-        // Botones.
-        JPanel panelBotones = new JPanel(
-                new FlowLayout(
-                        FlowLayout.RIGHT,
-                        ESPACIADO_SM,
-                        0
-                )
-        );
-
-        panelBotones.setOpaque(false);
-
-        BotonSecundario botonCancelar =
-                new BotonSecundario("Cancelar");
-
-        BotonPrincipal botonGuardar =
-                new BotonPrincipal(
-                        devolucionEdicion == null
-                                ? "Registrar devolución"
-                                : "Guardar cambios"
-                );
-
-        botonCancelar.addActionListener(e -> dispose());
-
-        botonGuardar.addActionListener(
+        // Botones comunes.
+        formulario.configurarBotonGuardar(
+                esEdicion()
+                        ? "Actualizar devolución"
+                        : "Registrar devolución",
                 e -> guardarDevolucion()
         );
 
-        panelBotones.add(botonCancelar);
-        panelBotones.add(botonGuardar);
+        formulario.configurarBotonCancelar(
+                "Cancelar",
+                e -> dispose()
+        );
 
         panelPrincipal.add(
                 panelEncabezado,
@@ -254,13 +244,8 @@ public class FormularioDevolucion extends JDialog {
         );
 
         panelPrincipal.add(
-                panelContenido,
+                formulario,
                 BorderLayout.CENTER
-        );
-
-        panelPrincipal.add(
-                panelBotones,
-                BorderLayout.SOUTH
         );
 
         setContentPane(panelPrincipal);
@@ -268,11 +253,15 @@ public class FormularioDevolucion extends JDialog {
         pack();
 
         setMinimumSize(
-                new Dimension(ANCHO_DIALOGO, 470)
+                new Dimension(ANCHO_DIALOGO + 180, 520)
         );
 
         setLocationRelativeTo(getOwner());
     }
+
+    // ==========================================
+    // CREACIÓN DE CAMPOS
+    // ==========================================
 
     private JPanel crearCampo(
             String titulo,
@@ -290,8 +279,15 @@ public class FormularioDevolucion extends JDialog {
                 TEXTO
         );
 
-        panel.add(etiqueta, BorderLayout.NORTH);
-        panel.add(componente, BorderLayout.CENTER);
+        panel.add(
+                etiqueta,
+                BorderLayout.NORTH
+        );
+
+        panel.add(
+                componente,
+                BorderLayout.CENTER
+        );
 
         return panel;
     }
@@ -303,6 +299,7 @@ public class FormularioDevolucion extends JDialog {
         campoObservaciones.setFont(FUENTE_NORMAL);
         campoObservaciones.setForeground(TEXTO);
         campoObservaciones.setBackground(SUPERFICIE);
+
         campoObservaciones.setBorder(
                 BorderFactory.createCompoundBorder(
                         BORDE_SIMPLE,
@@ -317,50 +314,7 @@ public class FormularioDevolucion extends JDialog {
     }
 
     // ==========================================
-    // SELECTOR DE FECHA
-    // ==========================================
-
-    private JSpinner crearSelectorFecha(LocalDate fecha) {
-
-        Date valorInicial = Date.from(
-                fecha.atStartOfDay(ZoneId.systemDefault())
-                        .toInstant()
-        );
-
-        JSpinner selector = new JSpinner(
-                new SpinnerDateModel(
-                        valorInicial,
-                        null,
-                        null,
-                        java.util.Calendar.DAY_OF_MONTH
-                )
-        );
-
-        selector.setEditor(
-                new JSpinner.DateEditor(
-                        selector,
-                        "dd/MM/yyyy"
-                )
-        );
-
-        selector.setPreferredSize(
-                new Dimension(180, ALTO_CAMPO)
-        );
-
-        return selector;
-    }
-
-    private LocalDate obtenerFecha() {
-
-        Date fecha = (Date) fechaDevolucion.getValue();
-
-        return fecha.toInstant()
-                .atZone(ZoneId.systemDefault())
-                .toLocalDate();
-    }
-
-    // ==========================================
-    // DETALLES DE ALQUILER
+    // SELECTOR DE DETALLES
     // ==========================================
 
     private void configurarSelectorDetalle() {
@@ -394,6 +348,10 @@ public class FormularioDevolucion extends JDialog {
         );
     }
 
+    // ==========================================
+    // CARGAR DETALLES PENDIENTES
+    // ==========================================
+
     private void cargarDetallesDisponibles() {
 
         selectorDetalle.removeAllItems();
@@ -407,7 +365,8 @@ public class FormularioDevolucion extends JDialog {
 
             for (IAlquiler alquiler : alquileres) {
 
-                if (alquiler == null || alquiler.getDetalles() == null) {
+                if (alquiler == null
+                        || alquiler.getDetalles() == null) {
                     continue;
                 }
 
@@ -427,15 +386,19 @@ public class FormularioDevolucion extends JDialog {
                     if (!tieneDevolucion) {
 
                         opciones.add(
-                                crearOpcionDetalle(alquiler, detalle)
+                                crearOpcionDetalle(
+                                        alquiler,
+                                        detalle
+                                )
                         );
                     }
                 }
             }
         }
 
-        // En edición se conserva el detalle de la devolución actual.
-        if (devolucionEdicion != null) {
+        // En actualización se conserva el detalle original.
+        if (esEdicion()
+                && devolucionEdicion.getDetalleAlquiler() != null) {
 
             IDetalleAlquiler detalleActual =
                     devolucionEdicion.getDetalleAlquiler();
@@ -448,29 +411,37 @@ public class FormularioDevolucion extends JDialog {
 
             if (!yaIncluido) {
 
-                opciones.add(
+                OpcionDetalle opcionActual =
                         buscarOpcionDetalle(
                                 alquileres,
                                 detalleActual
-                        )
-                );
+                        );
+
+                if (opcionActual != null) {
+                    opciones.add(opcionActual);
+                }
             }
         }
 
-        opciones.stream()
-                .filter(Objects::nonNull)
-                .forEach(selectorDetalle::addItem);
+        for (OpcionDetalle opcion : opciones) {
+            selectorDetalle.addItem(opcion);
+        }
 
         selectorDetalle.setEnabled(
-                devolucionEdicion == null
+                !esEdicion()
                         && selectorDetalle.getItemCount() > 0
         );
 
-        if (devolucionEdicion == null
+        if (!esEdicion()
                 && selectorDetalle.getItemCount() == 0) {
 
             etiquetaDetalle.setText(
                     "No hay detalles de alquiler pendientes de devolución."
+            );
+        } else if (!esEdicion()) {
+
+            etiquetaDetalle.setText(
+                    "Seleccione el detalle correspondiente a la prenda devuelta."
             );
         }
     }
@@ -479,10 +450,14 @@ public class FormularioDevolucion extends JDialog {
             IAlquiler alquiler,
             IDetalleAlquiler detalle) {
 
+        String nombreCliente = alquiler.getCliente() != null
+                ? alquiler.getCliente().getNombre()
+                : "Cliente no disponible";
+
         return new OpcionDetalle(
                 detalle,
                 alquiler.getNumeroConsecutivo(),
-                alquiler.getCliente().getNombre()
+                nombreCliente
         );
     }
 
@@ -490,25 +465,26 @@ public class FormularioDevolucion extends JDialog {
             List<IAlquiler> alquileres,
             IDetalleAlquiler detalleBuscado) {
 
-        if (alquileres != null) {
+        if (alquileres == null || detalleBuscado == null) {
+            return null;
+        }
 
-            for (IAlquiler alquiler : alquileres) {
+        for (IAlquiler alquiler : alquileres) {
 
-                if (alquiler == null || alquiler.getDetalles() == null) {
-                    continue;
-                }
+            if (alquiler == null || alquiler.getDetalles() == null) {
+                continue;
+            }
 
-                for (IDetalleAlquiler detalle : alquiler.getDetalles()) {
+            for (IDetalleAlquiler detalle : alquiler.getDetalles()) {
 
-                    if (detalle != null
-                            && detalle.getIdDetalle()
-                            == detalleBuscado.getIdDetalle()) {
+                if (detalle != null
+                        && detalle.getIdDetalle()
+                        == detalleBuscado.getIdDetalle()) {
 
-                        return crearOpcionDetalle(
-                                alquiler,
-                                detalle
-                        );
-                    }
+                    return crearOpcionDetalle(
+                            alquiler,
+                            detalle
+                    );
                 }
             }
         }
@@ -521,39 +497,48 @@ public class FormularioDevolucion extends JDialog {
     }
 
     // ==========================================
-    // CARGAR DATOS PARA EDICIÓN
+    // CARGAR DATOS PARA ACTUALIZACIÓN
     // ==========================================
 
-    private void cargarDatosDevolucion(IDevolucion devolucion) {
+    private void cargarDatosDevolucion() {
 
-        for (int i = 0; i < selectorDetalle.getItemCount(); i++) {
+        IDetalleAlquiler detalleActual =
+                devolucionEdicion.getDetalleAlquiler();
 
-            OpcionDetalle opcion = selectorDetalle.getItemAt(i);
+        if (detalleActual != null) {
 
-            if (opcion.detalle().getIdDetalle()
-                    == devolucion.getDetalleAlquiler().getIdDetalle()) {
+            for (int i = 0;
+                 i < selectorDetalle.getItemCount();
+                 i++) {
 
-                selectorDetalle.setSelectedIndex(i);
-                break;
+                OpcionDetalle opcion =
+                        selectorDetalle.getItemAt(i);
+
+                if (opcion.detalle().getIdDetalle()
+                        == detalleActual.getIdDetalle()) {
+
+                    selectorDetalle.setSelectedIndex(i);
+                    break;
+                }
             }
         }
 
         selectorDetalle.setEnabled(false);
 
-        fechaDevolucion.setValue(
-                Date.from(
-                        devolucion.getFechaDevolucion()
-                                .atStartOfDay(ZoneId.systemDefault())
-                                .toInstant()
+        fechaDevolucion.setFecha(
+                convertirFecha(
+                        devolucionEdicion.getFechaDevolucion()
                 )
         );
 
         selectorEstado.setSelectedItem(
-                devolucion.getEstadoRevision()
+                devolucionEdicion.getEstadoRevision()
         );
 
         campoObservaciones.setText(
-                devolucion.getObservaciones()
+                devolucionEdicion.getObservaciones() != null
+                        ? devolucionEdicion.getObservaciones()
+                        : ""
         );
 
         etiquetaDetalle.setText(
@@ -562,10 +547,14 @@ public class FormularioDevolucion extends JDialog {
     }
 
     // ==========================================
-    // REGISTRO Y ACTUALIZACIÓN
+    // REGISTRAR O ACTUALIZAR
     // ==========================================
 
     private void guardarDevolucion() {
+
+        if (guardando) {
+            return;
+        }
 
         try {
 
@@ -594,6 +583,9 @@ public class FormularioDevolucion extends JDialog {
             String observaciones =
                     campoObservaciones.getText().trim();
 
+            guardando = true;
+            formulario.setBotonesHabilitados(false);
+
             IDevolucion devolucion = new Devolucion(
                     opcionSeleccionada.detalle(),
                     fecha,
@@ -601,78 +593,152 @@ public class FormularioDevolucion extends JDialog {
                     estado
             );
 
-            if (devolucionEdicion == null) {
-
-                IDevolucion registrada =
-                        gestorDevoluciones.registrarDevolucion(
-                                devolucion
-                        );
-
-                mostrarMensaje(
-                        "La devolución se registró correctamente.\n"
-                                + "Identificador: "
-                                + registrada.getIdDevolucion(),
-                        "Devolución registrada",
-                        JOptionPane.INFORMATION_MESSAGE
-                );
-
-            } else {
+            if (esEdicion()) {
 
                 gestorDevoluciones.actualizarDevolucion(
                         devolucionEdicion.getIdDevolucion(),
                         devolucion
                 );
 
-                mostrarMensaje(
-                        "La devolución se actualizó correctamente.",
-                        "Devolución actualizada",
-                        JOptionPane.INFORMATION_MESSAGE
-                );
+            } else {
+
+                IDevolucion registrada =
+                        gestorDevoluciones.registrarDevolucion(
+                                devolucion
+                        );
+
+                if (registrada == null) {
+                    throw new IllegalStateException(
+                            "No se recibió la devolución registrada."
+                    );
+                }
             }
 
-            if (alGuardar != null) {
-                alGuardar.run();
-            }
+            mostrarMensajeExito();
 
             dispose();
 
+            if (alGuardar != null) {
+                try {
+                    alGuardar.run();
+                } catch (RuntimeException ex) {
+                    ex.printStackTrace(System.err);
+
+                    JOptionPane.showMessageDialog(
+                            getOwner(),
+                            "La devolución se guardó, pero no fue posible "
+                                    + "actualizar la tabla.",
+                            "Aviso",
+                            JOptionPane.WARNING_MESSAGE
+                    );
+                }
+            }
+
         } catch (ValidacionException ex) {
 
-            mostrarMensaje(
-                    ex.getMessage(),
-                    "Error de validación",
-                    JOptionPane.WARNING_MESSAGE
+            mostrarErrorValidacion(ex.getMessage());
+
+        } catch (RuntimeException ex) {
+
+            ex.printStackTrace(System.err);
+
+            mostrarError(
+                    "No fue posible "
+                            + (esEdicion() ? "actualizar" : "registrar")
+                            + " la devolución.\n\n"
+                            + obtenerMensajeError(ex)
             );
 
-        } catch (Exception ex) {
+        } finally {
 
-            mostrarMensaje(
-                    "No fue posible guardar la devolución: "
-                            + ex.getMessage(),
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE
-            );
+            if (isDisplayable()) {
+                guardando = false;
+                formulario.setBotonesHabilitados(true);
+            }
         }
+    }
+
+    // ==========================================
+    // CONVERSIÓN DE FECHAS
+    // ==========================================
+
+    private LocalDate obtenerFecha() {
+
+        return fechaDevolucion.getFecha()
+                .toInstant()
+                .atZone(ZoneId.systemDefault())
+                .toLocalDate();
+    }
+
+    private Date convertirFecha(LocalDate fecha) {
+
+        return Date.from(
+                fecha.atStartOfDay(ZoneId.systemDefault())
+                        .toInstant()
+        );
+    }
+
+    // ==========================================
+    // MENSAJES
+    // ==========================================
+
+    private void mostrarMensajeExito() {
+
+        JOptionPane.showMessageDialog(
+                this,
+                esEdicion()
+                        ? "La devolución se actualizó correctamente."
+                        : "La devolución se registró correctamente.",
+                esEdicion()
+                        ? "Devolución actualizada"
+                        : "Devolución registrada",
+                JOptionPane.INFORMATION_MESSAGE
+        );
+    }
+
+    private void mostrarErrorValidacion(String mensaje) {
+
+        JOptionPane.showMessageDialog(
+                this,
+                mensaje,
+                "Datos inválidos",
+                JOptionPane.WARNING_MESSAGE
+        );
+    }
+
+    private void mostrarError(String mensaje) {
+
+        JOptionPane.showMessageDialog(
+                this,
+                mensaje,
+                "Error",
+                JOptionPane.ERROR_MESSAGE
+        );
+    }
+
+    private String obtenerMensajeError(Throwable ex) {
+
+        Throwable causa = ex;
+
+        while (causa.getCause() != null) {
+            causa = causa.getCause();
+        }
+
+        return causa.getMessage() != null
+                ? causa.getMessage()
+                : "Ocurrió un error inesperado.";
     }
 
     // ==========================================
     // UTILIDADES
     // ==========================================
 
-    private void mostrarMensaje(
-            String mensaje,
-            String titulo,
-            int tipo) {
-
-        JOptionPane.showMessageDialog(
-                this,
-                mensaje,
-                titulo,
-                tipo
-        );
+    private boolean esEdicion() {
+        return devolucionEdicion != null;
     }
 
     public void mostrar() {
+        setLocationRelativeTo(getOwner());
         setVisible(true);
     }
 
@@ -688,8 +754,12 @@ public class FormularioDevolucion extends JDialog {
         @Override
         public String toString() {
 
+            String referencia = detalle.getPrenda() != null
+                    ? detalle.getPrenda().getReferencia()
+                    : "Prenda no disponible";
+
             return "Alquiler N.º " + consecutivo
-                    + " | " + detalle.getPrenda().getReferencia()
+                    + " | " + referencia
                     + " | " + cliente;
         }
     }

@@ -16,7 +16,6 @@ import java.util.Objects;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
-/** Recoge los datos del formulario de empleados y coordina las acciones de esa pantalla. */
 public class FormularioEmpleados extends JDialog {
 
     private final IGestorPersonas gestorPersonas;
@@ -34,6 +33,8 @@ public class FormularioEmpleados extends JDialog {
     private final CampoTexto campoCargo;
 
     private final PanelFormulario formulario;
+
+    private boolean guardando;
 
     // ==========================================
     // CONSTRUCTOR DE REGISTRO
@@ -55,7 +56,7 @@ public class FormularioEmpleados extends JDialog {
     }
 
     // ==========================================
-    // CONSTRUCTOR DE REGISTRO Y EDICIÓN
+    // CONSTRUCTOR DE REGISTRO Y ACTUALIZACIÓN
     // ==========================================
 
     public FormularioEmpleados(
@@ -69,7 +70,7 @@ public class FormularioEmpleados extends JDialog {
                 propietario,
                 empleado == null
                         ? "Registrar empleado"
-                        : "Editar empleado",
+                        : "Actualizar empleado",
                 ModalityType.APPLICATION_MODAL
         );
 
@@ -90,37 +91,37 @@ public class FormularioEmpleados extends JDialog {
                 ? null
                 : empleado.getIdentificacion();
 
-        this.campoIdentificacion = new CampoTexto(
+        campoIdentificacion = new CampoTexto(
                 "Identificación",
                 "Ingrese el número de identificación"
         );
 
-        this.campoNombre = new CampoTexto(
+        campoNombre = new CampoTexto(
                 "Nombre completo",
                 "Ingrese el nombre completo"
         );
 
-        this.campoDireccion = new CampoTexto(
+        campoDireccion = new CampoTexto(
                 "Dirección",
                 "Ingrese la dirección"
         );
 
-        this.campoTelefono = new CampoTexto(
+        campoTelefono = new CampoTexto(
                 "Teléfono",
                 "Ingrese el teléfono"
         );
 
-        this.campoCorreo = new CampoTexto(
+        campoCorreo = new CampoTexto(
                 "Correo electrónico",
                 "Ingrese el correo electrónico"
         );
 
-        this.campoCargo = new CampoTexto(
+        campoCargo = new CampoTexto(
                 "Cargo",
                 "Ingrese el cargo del empleado"
         );
 
-        this.formulario = new PanelFormulario();
+        formulario = new PanelFormulario();
 
         inicializarComponentes();
 
@@ -147,7 +148,7 @@ public class FormularioEmpleados extends JDialog {
 
         JLabel titulo = crearEtiqueta(
                 esEdicion()
-                        ? "Editar información del empleado"
+                        ? "Actualizar información del empleado"
                         : "Información del empleado",
                 FUENTE_SUBTITULO,
                 TEXTO
@@ -175,7 +176,7 @@ public class FormularioEmpleados extends JDialog {
         );
         panelEncabezado.add(descripcion);
 
-        // Campos del formulario.
+        // Distribución de los campos.
         formulario.agregarCampo(campoIdentificacion, 0, 0, 2);
         formulario.agregarCampo(campoNombre, 1, 0, 2);
         formulario.agregarCampo(campoDireccion, 2, 0, 2);
@@ -183,8 +184,16 @@ public class FormularioEmpleados extends JDialog {
         formulario.agregarCampo(campoCorreo, 3, 1);
         formulario.agregarCampo(campoCargo, 4, 0, 2);
 
-        formulario.setAccionGuardar(e -> guardarEmpleado());
-        formulario.setAccionCancelar(e -> dispose());
+        // Botones del componente común.
+        formulario.configurarBotonGuardar(
+                esEdicion() ? "Actualizar empleado" : "Registrar empleado",
+                e -> guardarEmpleado()
+        );
+
+        formulario.configurarBotonCancelar(
+                "Cancelar",
+                e -> dispose()
+        );
 
         panelPrincipal.add(
                 panelEncabezado,
@@ -208,7 +217,7 @@ public class FormularioEmpleados extends JDialog {
     }
 
     // ==========================================
-    // CARGAR DATOS PARA EDICIÓN
+    // CARGAR DATOS PARA ACTUALIZACIÓN
     // ==========================================
 
     private void cargarDatosEmpleado() {
@@ -239,18 +248,24 @@ public class FormularioEmpleados extends JDialog {
     }
 
     // ==========================================
-    // GUARDAR EMPLEADO
+    // REGISTRAR O ACTUALIZAR EMPLEADO
     // ==========================================
 
     private void guardarEmpleado() {
+
+        if (guardando) {
+            return;
+        }
 
         limpiarErrores();
 
         try {
 
+            guardando = true;
+            formulario.setBotonesHabilitados(false);
+
             Map<String, String> datos = obtenerDatosFormulario();
 
-            // Validación visual y normalización.
             ResultadoValidacion<Map<String, String>> resultado =
                     validador.validar(datos);
 
@@ -286,11 +301,24 @@ public class FormularioEmpleados extends JDialog {
 
             mostrarMensajeExito(empleadoGuardado);
 
-            if (alGuardar != null) {
-                alGuardar.run();
-            }
-
             dispose();
+
+            // Notifica al panel para actualizar la tabla.
+            if (alGuardar != null) {
+                try {
+                    alGuardar.run();
+                } catch (RuntimeException ex) {
+                    ex.printStackTrace(System.err);
+
+                    JOptionPane.showMessageDialog(
+                            getOwner(),
+                            "El empleado se guardó correctamente, "
+                                    + "pero no fue posible actualizar la tabla.",
+                            "Aviso",
+                            JOptionPane.WARNING_MESSAGE
+                    );
+                }
+            }
 
         } catch (ValidacionException ex) {
 
@@ -302,47 +330,29 @@ public class FormularioEmpleados extends JDialog {
 
         } catch (RuntimeException ex) {
 
-            // Imprimir la excepción completa en la consola de errores.
             ex.printStackTrace(System.err);
-
-            // Construir el detalle de todas las causas.
-            StringBuilder detalle = new StringBuilder();
-
-            Throwable causa = ex;
-            int nivel = 1;
-
-            while (causa != null) {
-
-                detalle.append("Causa ").append(nivel).append(":\n");
-                detalle.append(causa.getClass().getName()).append("\n");
-                detalle.append(causa.getMessage()).append("\n\n");
-
-                causa = causa.getCause();
-                nivel++;
-            }
-
-            // Mostrar el error completo en una ventana.
-            JTextArea area = new JTextArea(detalle.toString());
-
-            area.setEditable(false);
-            area.setLineWrap(true);
-            area.setWrapStyleWord(true);
-            area.setCaretPosition(0);
-
-            JScrollPane scroll = new JScrollPane(area);
-            scroll.setPreferredSize(new Dimension(550, 300));
 
             JOptionPane.showMessageDialog(
                     this,
-                    scroll,
-                    "Detalle del error al registrar empleado",
+                    "No fue posible "
+                            + (esEdicion() ? "actualizar" : "registrar")
+                            + " el empleado.\n\n"
+                            + obtenerMensajeError(ex),
+                    "Error en la operación",
                     JOptionPane.ERROR_MESSAGE
             );
+
+        } finally {
+
+            if (isDisplayable()) {
+                guardando = false;
+                formulario.setBotonesHabilitados(true);
+            }
         }
     }
 
     // ==========================================
-    // OBTENER DATOS DEL FORMULARIO
+    // OBTENER DATOS
     // ==========================================
 
     private Map<String, String> obtenerDatosFormulario() {
@@ -380,7 +390,7 @@ public class FormularioEmpleados extends JDialog {
     }
 
     // ==========================================
-    // VISUALIZACIÓN DE ERRORES
+    // MOSTRAR ERRORES POR CAMPO
     // ==========================================
 
     private void mostrarErroresCampos(
@@ -431,6 +441,10 @@ public class FormularioEmpleados extends JDialog {
         }
     }
 
+    // ==========================================
+    // LIMPIAR ERRORES
+    // ==========================================
+
     private void limpiarErrores() {
 
         campoIdentificacion.limpiarError();
@@ -440,6 +454,10 @@ public class FormularioEmpleados extends JDialog {
         campoCorreo.limpiarError();
         campoCargo.limpiarError();
     }
+
+    // ==========================================
+    // ERROR GENERAL
+    // ==========================================
 
     private void mostrarErrorValidacion(String mensaje) {
 
@@ -451,6 +469,19 @@ public class FormularioEmpleados extends JDialog {
         );
     }
 
+    private String obtenerMensajeError(Throwable ex) {
+
+        Throwable causa = ex;
+
+        while (causa.getCause() != null) {
+            causa = causa.getCause();
+        }
+
+        return causa.getMessage() != null
+                ? causa.getMessage()
+                : "Ocurrió un error inesperado.";
+    }
+
     // ==========================================
     // UTILIDADES
     // ==========================================
@@ -460,6 +491,7 @@ public class FormularioEmpleados extends JDialog {
     }
 
     public void mostrar() {
+        setLocationRelativeTo(getOwner());
         setVisible(true);
     }
 }

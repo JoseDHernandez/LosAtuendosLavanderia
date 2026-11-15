@@ -9,33 +9,62 @@ import java.awt.event.ActionListener;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
-/** Presenta el encabezado visual de un módulo. */
+/**
+ * Presenta el encabezado visual reutilizable de los módulos
+ * de la aplicación.
+ *
+ * Permite mostrar un título, una descripción y un botón
+ * de acción opcional.
+ */
 public class PanelEncabezado extends JPanel {
 
     private final JLabel lblTitulo;
     private final JLabel lblDescripcion;
 
     private BotonPrincipal btnAccion;
+    private JPanel panelAcciones;
 
+    // ==========================================
+    // CONSTRUCTORES
+    // ==========================================
+
+    /**
+     * Construye un encabezado sin botón de acción.
+     *
+     * @param titulo Título del módulo.
+     * @param descripcion Descripción del módulo.
+     */
     public PanelEncabezado(
             String titulo,
-            String descripcion
-    ) {
+            String descripcion) {
+
         this(titulo, descripcion, null, null);
     }
 
+    /**
+     * Construye un encabezado con botón de acción opcional.
+     *
+     * @param titulo Título del módulo.
+     * @param descripcion Descripción del módulo.
+     * @param textoAccion Texto del botón.
+     * @param accion Acción ejecutada al presionar el botón.
+     */
     public PanelEncabezado(
             String titulo,
             String descripcion,
             String textoAccion,
-            ActionListener accion
-    ) {
+            ActionListener accion) {
+
         lblTitulo = new JLabel(titulo);
         lblDescripcion = new JLabel(descripcion);
 
         configurarPanel();
         configurarTextos();
-        construirContenido(textoAccion, accion);
+        construirContenido();
+
+        if (textoAccion != null && !textoAccion.isBlank()) {
+            configurarBotonAccion(textoAccion, accion);
+        }
     }
 
     // ==========================================
@@ -73,12 +102,10 @@ public class PanelEncabezado extends JPanel {
     // CONSTRUCCIÓN DEL CONTENIDO
     // ==========================================
 
-    private void construirContenido(
-            String textoAccion,
-            ActionListener accion
-    ) {
+    private void construirContenido() {
 
         JPanel informacion = new JPanel();
+
         informacion.setLayout(
                 new BoxLayout(informacion, BoxLayout.Y_AXIS)
         );
@@ -95,29 +122,95 @@ public class PanelEncabezado extends JPanel {
 
         add(informacion, BorderLayout.CENTER);
 
-        if (textoAccion != null && !textoAccion.isBlank()) {
+        panelAcciones = new JPanel(
+                new FlowLayout(FlowLayout.RIGHT, 0, 0)
+        );
 
-            btnAccion = new BotonPrincipal(textoAccion);
+        panelAcciones.setBackground(FONDO);
+        panelAcciones.setOpaque(true);
 
-            if (accion != null) {
-                btnAccion.addActionListener(accion);
-            }
+        add(panelAcciones, BorderLayout.EAST);
+    }
 
-            JPanel acciones = new JPanel(
-                    new FlowLayout(FlowLayout.RIGHT, 0, 0)
-            );
+    // ==========================================
+    // CONFIGURACIÓN DEL BOTÓN DE ACCIÓN
+    // ==========================================
 
-            acciones.setBackground(FONDO);
-            acciones.setOpaque(true);
+    /**
+     * Crea o actualiza el botón de acción del encabezado.
+     *
+     * @param texto Texto que mostrará el botón.
+     * @param accion Acción asociada al botón.
+     */
+    public void configurarBotonAccion(
+            String texto,
+            ActionListener accion) {
 
-            acciones.add(btnAccion);
+        if (texto == null || texto.isBlank()) {
+            ocultarBotonAccion();
+            return;
+        }
 
-            add(acciones, BorderLayout.EAST);
+        if (btnAccion == null) {
+
+            btnAccion = new BotonPrincipal(texto);
+
+            panelAcciones.add(btnAccion);
+
+        } else {
+
+            btnAccion.setText(texto);
+        }
+
+        setAccion(accion);
+
+        btnAccion.setVisible(true);
+
+        revalidate();
+        repaint();
+    }
+
+    /**
+     * Oculta el botón de acción sin eliminarlo.
+     */
+    public void ocultarBotonAccion() {
+
+        if (btnAccion != null) {
+            btnAccion.setVisible(false);
+            revalidate();
+            repaint();
+        }
+    }
+
+    /**
+     * Muestra nuevamente el botón si existe.
+     */
+    public void mostrarBotonAccion() {
+
+        if (btnAccion != null) {
+            btnAccion.setVisible(true);
+            revalidate();
+            repaint();
+        }
+    }
+
+    /**
+     * Elimina el botón de acción del encabezado.
+     */
+    public void eliminarBotonAccion() {
+
+        if (btnAccion != null) {
+
+            panelAcciones.remove(btnAccion);
+            btnAccion = null;
+
+            revalidate();
+            repaint();
         }
     }
 
     // ==========================================
-    // ACCESO Y ACTUALIZACIÓN
+    // ACCESO Y ACTUALIZACIÓN DE TEXTOS
     // ==========================================
 
     public void setTitulo(String titulo) {
@@ -135,6 +228,19 @@ public class PanelEncabezado extends JPanel {
         }
     }
 
+    // ==========================================
+    // ACCIÓN DEL BOTÓN
+    // ==========================================
+
+    /**
+     * Reemplaza la acción asociada al botón.
+     * Si todavía no existe un botón, no realiza ninguna operación.
+     *
+     * Para crear el botón dinámicamente se debe utilizar
+     * configurarBotonAccion().
+     *
+     * @param accion Nueva acción.
+     */
     public void setAccion(ActionListener accion) {
 
         if (btnAccion == null) {
@@ -143,6 +249,7 @@ public class PanelEncabezado extends JPanel {
 
         for (ActionListener listener :
                 btnAccion.getActionListeners()) {
+
             btnAccion.removeActionListener(listener);
         }
 
@@ -151,7 +258,19 @@ public class PanelEncabezado extends JPanel {
         }
     }
 
+    // ==========================================
+    // CONSULTAS
+    // ==========================================
+
     public BotonPrincipal getBotonAccion() {
         return btnAccion;
+    }
+
+    public boolean tieneBotonAccion() {
+        return btnAccion != null;
+    }
+
+    public boolean isBotonAccionVisible() {
+        return btnAccion != null && btnAccion.isVisible();
     }
 }

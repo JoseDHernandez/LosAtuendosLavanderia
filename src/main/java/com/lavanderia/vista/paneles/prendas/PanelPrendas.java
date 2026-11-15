@@ -8,42 +8,57 @@ import com.lavanderia.modelo.interfaces.IDisfraz;
 import com.lavanderia.patrones.facade.ISistemaFacade;
 import com.lavanderia.servicio.interfaces.IGestorPrendas;
 import com.lavanderia.validacion.prenda.IPrendaValidator;
-import com.lavanderia.vista.componentes.BotonPrincipal;
 import com.lavanderia.vista.componentes.BotonSecundario;
-import com.lavanderia.vista.componentes.CampoBusqueda;
-import com.lavanderia.vista.componentes.TablaDatos;
 import com.lavanderia.vista.estilos.IconosUI;
 import com.lavanderia.vista.paneles.comunes.PanelModulo;
+import com.lavanderia.vista.paneles.comunes.PanelTabla;
 
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
-import static com.lavanderia.vista.estilos.EstilosUI.*;
-
-/** Presenta el módulo de prendas y sus acciones en la interfaz Swing. */
 public class PanelPrendas extends PanelModulo {
+
+    // ==========================================
+    // DEPENDENCIAS
+    // ==========================================
 
     private final IGestorPrendas gestorPrendas;
     private final IPrendaValidator validador;
 
-    private final CampoBusqueda campoBusqueda;
-    private final TablaDatos tablaPrendas;
+    // ==========================================
+    // COMPONENTES
+    // ==========================================
+
+    private final PanelTabla panelTabla;
+
     private final DefaultTableModel modeloTabla;
 
     private final BotonSecundario botonEditar;
+    private final BotonSecundario botonActualizar;
+
+    // ==========================================
+    // DATOS
+    // ==========================================
 
     private List<IPrenda> prendas;
 
+    // ==========================================
+    // CONSTRUCTOR
+    // ==========================================
+
     public PanelPrendas(
             ISistemaFacade sistemaFacade,
-            IPrendaValidator validador) {
+            IPrendaValidator validador
+    ) {
 
         super(
                 "prendas",
@@ -69,14 +84,14 @@ public class PanelPrendas extends PanelModulo {
 
         this.prendas = new ArrayList<>();
 
-        this.campoBusqueda = new CampoBusqueda(
+        this.panelTabla = new PanelTabla(
                 "Buscar por referencia, tipo, color, marca o talla..."
         );
 
-        this.tablaPrendas = new TablaDatos();
         this.modeloTabla = crearModeloTabla();
 
-        this.botonEditar = new BotonSecundario("Editar prenda");
+        this.botonEditar = new BotonSecundario("Editar");
+        this.botonActualizar = new BotonSecundario("Actualizar");
 
         inicializarComponentes();
         configurarEventos();
@@ -84,96 +99,43 @@ public class PanelPrendas extends PanelModulo {
     }
 
     // ==========================================
-    // INICIALIZACIÓN DE COMPONENTES
+    // INICIALIZACIÓN
     // ==========================================
 
     private void inicializarComponentes() {
 
-        JPanel panelPrincipal = new JPanel(
-                new BorderLayout(0, ESPACIADO_MD)
-        );
-
-        panelPrincipal.setOpaque(false);
-
-        // Barra de herramientas.
-        JPanel panelHerramientas = new JPanel(
-                new BorderLayout()
-        );
-
-        panelHerramientas.setOpaque(false);
-
-        JLabel etiquetaResultados = crearEtiqueta(
-                "Prendas registradas",
-                FUENTE_SECCION,
-                TEXTO
-        );
-
-        // Botón registrar.
-        BotonPrincipal botonNuevo =
-                new BotonPrincipal("Nueva prenda");
-
-        botonNuevo.setIcon(IconosUI.agregar());
-
-        botonNuevo.addActionListener(
+        // Acción principal del encabezado.
+        configurarAccion(
+                "Nueva prenda",
                 e -> abrirFormularioRegistro()
         );
 
+        // Configurar tabla.
+        panelTabla.setModelo(modeloTabla);
+
+        panelTabla.getTablaDatos()
+                .setOrdenamientoHabilitado(true);
+
         // Botón editar.
-        botonEditar.setIcon(IconosUI.editar());
+        botonEditar.configurarIcono(IconosUI.editar());
+        botonEditar.setEnabled(false);
+
         botonEditar.addActionListener(
                 e -> abrirFormularioEdicion()
         );
-        botonEditar.setEnabled(false);
 
         // Botón actualizar.
-        BotonSecundario botonActualizar =
-                new BotonSecundario("Actualizar");
-
-        botonActualizar.setIcon(IconosUI.actualizar());
+        botonActualizar.configurarIcono(IconosUI.actualizar());
 
         botonActualizar.addActionListener(
                 e -> cargarPrendas()
         );
 
-        JPanel panelAcciones = new JPanel(
-                new FlowLayout(
-                        FlowLayout.RIGHT,
-                        ESPACIADO_SM,
-                        0
-                )
-        );
+        // Agregar acciones secundarias al panel común.
+        panelTabla.agregarAccion(botonEditar);
+        panelTabla.agregarAccion(botonActualizar);
 
-        panelAcciones.setOpaque(false);
-        panelAcciones.add(campoBusqueda);
-        panelAcciones.add(botonEditar);
-        panelAcciones.add(botonActualizar);
-        panelAcciones.add(botonNuevo);
-
-        panelHerramientas.add(
-                etiquetaResultados,
-                BorderLayout.WEST
-        );
-
-        panelHerramientas.add(
-                panelAcciones,
-                BorderLayout.EAST
-        );
-
-        // Tabla.
-        tablaPrendas.setModelo(modeloTabla);
-        tablaPrendas.setOrdenamientoHabilitado(true);
-
-        panelPrincipal.add(
-                panelHerramientas,
-                BorderLayout.NORTH
-        );
-
-        panelPrincipal.add(
-                tablaPrendas,
-                BorderLayout.CENTER
-        );
-
-        agregarContenido(panelPrincipal);
+        agregarContenido(panelTabla);
     }
 
     // ==========================================
@@ -194,15 +156,79 @@ public class PanelPrendas extends PanelModulo {
                 },
                 0
         ) {
+
             @Override
-            public boolean isCellEditable(int fila, int columna) {
+            public boolean isCellEditable(
+                    int fila,
+                    int columna
+            ) {
                 return false;
             }
         };
     }
 
     // ==========================================
-    // APERTURA DE FORMULARIOS
+    // EVENTOS
+    // ==========================================
+
+    private void configurarEventos() {
+
+        // Búsqueda dinámica.
+        panelTabla.getCampoBusqueda().addDocumentListener(
+                new DocumentListener() {
+
+                    @Override
+                    public void insertUpdate(DocumentEvent e) {
+                        filtrarPrendas();
+                    }
+
+                    @Override
+                    public void removeUpdate(DocumentEvent e) {
+                        filtrarPrendas();
+                    }
+
+                    @Override
+                    public void changedUpdate(DocumentEvent e) {
+                        filtrarPrendas();
+                    }
+                }
+        );
+
+        // Habilitar edición cuando exista selección.
+        panelTabla.getTablaDatos()
+                .getTabla()
+                .getSelectionModel()
+                .addListSelectionListener(e -> {
+
+                    if (!e.getValueIsAdjusting()) {
+
+                        botonEditar.setEnabled(
+                                panelTabla.getTablaDatos()
+                                        .getTabla()
+                                        .getSelectedRow() != -1
+                        );
+                    }
+                });
+
+        // Doble clic para editar.
+        panelTabla.getTablaDatos()
+                .getTabla()
+                .addMouseListener(new MouseAdapter() {
+
+                    @Override
+                    public void mouseClicked(MouseEvent e) {
+
+                        if (e.getClickCount() == 2
+                                && SwingUtilities.isLeftMouseButton(e)) {
+
+                            abrirFormularioEdicion();
+                        }
+                    }
+                });
+    }
+
+    // ==========================================
+    // FORMULARIO DE REGISTRO
     // ==========================================
 
     private void abrirFormularioRegistro() {
@@ -220,6 +246,10 @@ public class PanelPrendas extends PanelModulo {
         formulario.mostrar();
     }
 
+    // ==========================================
+    // FORMULARIO DE EDICIÓN
+    // ==========================================
+
     private void abrirFormularioEdicion() {
 
         IPrenda prenda = obtenerPrendaSeleccionada();
@@ -228,7 +258,7 @@ public class PanelPrendas extends PanelModulo {
 
             JOptionPane.showMessageDialog(
                     this,
-                    "Seleccione una prenda para editar.",
+                    "Selecciona una prenda para editar.",
                     "Selección requerida",
                     JOptionPane.WARNING_MESSAGE
             );
@@ -251,20 +281,17 @@ public class PanelPrendas extends PanelModulo {
     }
 
     // ==========================================
-    // OBTENER PRENDA SELECCIONADA
+    // PRENDA SELECCIONADA
     // ==========================================
 
     private IPrenda obtenerPrendaSeleccionada() {
 
-        int filaVista = tablaPrendas.getFilaSeleccionada();
+        int filaModelo = panelTabla.getTablaDatos()
+                .getFilaSeleccionada();
 
-        if (filaVista == -1) {
+        if (filaModelo == -1) {
             return null;
         }
-
-        // Convertir índice visual al índice del modelo.
-        int filaModelo = tablaPrendas.getTabla()
-                .convertRowIndexToModel(filaVista);
 
         String referencia = String.valueOf(
                 modeloTabla.getValueAt(filaModelo, 0)
@@ -280,60 +307,6 @@ public class PanelPrendas extends PanelModulo {
     }
 
     // ==========================================
-    // EVENTOS
-    // ==========================================
-
-    private void configurarEventos() {
-
-        campoBusqueda.addDocumentListener(new DocumentListener() {
-
-            @Override
-            public void insertUpdate(DocumentEvent e) {
-                filtrarPrendas();
-            }
-
-            @Override
-            public void removeUpdate(DocumentEvent e) {
-                filtrarPrendas();
-            }
-
-            @Override
-            public void changedUpdate(DocumentEvent e) {
-                filtrarPrendas();
-            }
-        });
-
-        // Habilitar edición al seleccionar una fila.
-        tablaPrendas.getTabla()
-                .getSelectionModel()
-                .addListSelectionListener(e -> {
-
-                    if (!e.getValueIsAdjusting()) {
-                        botonEditar.setEnabled(
-                                tablaPrendas.getFilaSeleccionada() != -1
-                        );
-                    }
-                });
-
-        // Doble clic para editar.
-        tablaPrendas.getTabla().addMouseListener(
-                new java.awt.event.MouseAdapter() {
-
-                    @Override
-                    public void mouseClicked(
-                            java.awt.event.MouseEvent e) {
-
-                        if (e.getClickCount() == 2
-                                && SwingUtilities.isLeftMouseButton(e)) {
-
-                            abrirFormularioEdicion();
-                        }
-                    }
-                }
-        );
-    }
-
-    // ==========================================
     // CONSULTA DE PRENDAS
     // ==========================================
 
@@ -345,6 +318,7 @@ public class PanelPrendas extends PanelModulo {
                     gestorPrendas.listarPrendas();
 
             if (resultado == null) {
+
                 throw new IllegalStateException(
                         "El gestor devolvió una lista de prendas nula."
                 );
@@ -352,29 +326,30 @@ public class PanelPrendas extends PanelModulo {
 
             prendas = new ArrayList<>(resultado);
 
-            // Conserva el filtro de búsqueda actual.
+            // Mantener el texto de búsqueda actual.
             filtrarPrendas();
 
         } catch (RuntimeException ex) {
 
             mostrarError(
                     "No fue posible cargar las prendas.\n"
-                            + ex.getMessage()
+                            + obtenerMensajeError(ex)
             );
         }
     }
 
     // ==========================================
-    // FILTRO DE PRENDAS
+    // FILTRAR PRENDAS
     // ==========================================
 
     private void filtrarPrendas() {
 
-        String texto = campoBusqueda.getText()
+        String texto = panelTabla.getTextoBusqueda()
                 .trim()
                 .toLowerCase(Locale.ROOT);
 
         if (texto.isEmpty()) {
+
             actualizarTabla(prendas);
             return;
         }
@@ -399,7 +374,8 @@ public class PanelPrendas extends PanelModulo {
 
     private boolean contiene(
             String valor,
-            String texto) {
+            String texto
+    ) {
 
         return valor != null
                 && valor.toLowerCase(Locale.ROOT).contains(texto);
@@ -427,37 +403,36 @@ public class PanelPrendas extends PanelModulo {
     }
 
     // ==========================================
-    // ACTUALIZACIÓN DE LA TABLA
+    // ACTUALIZAR TABLA
     // ==========================================
 
     private void actualizarTabla(List<IPrenda> listaPrendas) {
 
         modeloTabla.setRowCount(0);
 
-        if (listaPrendas == null) {
-            botonEditar.setEnabled(false);
-            return;
-        }
+        if (listaPrendas != null) {
 
-        for (IPrenda prenda : listaPrendas) {
+            for (IPrenda prenda : listaPrendas) {
 
-            if (prenda == null) {
-                continue;
+                if (prenda == null) {
+                    continue;
+                }
+
+                modeloTabla.addRow(new Object[]{
+                        prenda.getReferencia(),
+                        obtenerTipo(prenda),
+                        prenda.getColor(),
+                        prenda.getMarca(),
+                        prenda.getTalla(),
+                        prenda.getValorAlquiler(),
+                        prenda.getEstado()
+                });
             }
-
-            modeloTabla.addRow(new Object[]{
-                    prenda.getReferencia(),
-                    obtenerTipo(prenda),
-                    prenda.getColor(),
-                    prenda.getMarca(),
-                    prenda.getTalla(),
-                    prenda.getValorAlquiler(),
-                    prenda.getEstado()
-            });
         }
 
-        // Evitar mantener una selección sobre datos anteriores.
-        tablaPrendas.getTabla().clearSelection();
+        // Evitar conservar una selección de datos anteriores.
+        panelTabla.getTablaDatos().limpiarSeleccion();
+
         botonEditar.setEnabled(false);
     }
 
@@ -470,8 +445,15 @@ public class PanelPrendas extends PanelModulo {
         JOptionPane.showMessageDialog(
                 this,
                 mensaje,
-                "Error",
+                "Gestión de prendas",
                 JOptionPane.ERROR_MESSAGE
         );
+    }
+
+    private String obtenerMensajeError(RuntimeException ex) {
+
+        return ex.getMessage() == null
+                ? "Ocurrió un error inesperado."
+                : ex.getMessage();
     }
 }
