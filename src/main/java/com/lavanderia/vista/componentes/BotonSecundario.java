@@ -11,28 +11,19 @@ import static com.lavanderia.vista.estilos.EstilosUI.*;
 /**
  * Botón destinado a las acciones secundarias.
  *
- * Características:
- * - Utiliza dimensiones centralizadas en EstilosUI.
- * - Mantiene el texto en una sola línea.
- * - Alinea el icono a la izquierda del texto.
- * - Conserva los estados visuales normal, hover y deshabilitado.
- * - Permite actualizar su texto e icono.
+ * El fondo se pinta manualmente para evitar que el Look and Feel
+ * de Swing introduzca superficies blancas no deseadas.
  */
 public class BotonSecundario extends JButton {
 
     private boolean hover;
-
     private String textoOriginal;
-
-    // ==========================================
-    // CONSTRUCTOR
-    // ==========================================
 
     public BotonSecundario(String texto) {
 
         super(texto != null ? texto : "");
 
-        this.textoOriginal = texto != null ? texto : "";
+        textoOriginal = texto != null ? texto : "";
 
         configurarBoton();
         configurarEventos();
@@ -46,55 +37,53 @@ public class BotonSecundario extends JButton {
     private void configurarBoton() {
 
         setFont(FUENTE_ETIQUETA);
-
         setForeground(TEXTO);
         setBackground(SUPERFICIE);
 
-        // Alineación del contenido.
         setHorizontalAlignment(SwingConstants.CENTER);
         setVerticalAlignment(SwingConstants.CENTER);
 
-        // Icono a la izquierda del texto.
         setHorizontalTextPosition(SwingConstants.RIGHT);
         setVerticalTextPosition(SwingConstants.CENTER);
-
         setIconTextGap(ESPACIADO_SM);
 
-        // Borde y márgenes internos.
-        setBorder(BorderFactory.createCompoundBorder(
-                BORDE_SIMPLE,
-                BorderFactory.createEmptyBorder(
-                        ESPACIADO_SM,
-                        ESPACIADO_MD,
-                        ESPACIADO_SM,
-                        ESPACIADO_MD
+        setBorder(
+                BorderFactory.createCompoundBorder(
+                        BORDE_SIMPLE,
+                        BorderFactory.createEmptyBorder(
+                                ESPACIADO_SM,
+                                ESPACIADO_MD,
+                                ESPACIADO_SM,
+                                ESPACIADO_MD
+                        )
                 )
-        ));
+        );
 
-        // Comportamiento visual.
+        // Evitar el pintado predeterminado del Look and Feel.
         setFocusPainted(false);
         setBorderPainted(true);
-        setContentAreaFilled(true);
-        setOpaque(true);
-
-        setCursor(new Cursor(Cursor.HAND_CURSOR));
+        setContentAreaFilled(false);
+        setOpaque(false);
 
         setRolloverEnabled(false);
+        setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        // Dimensiones centralizadas.
         setPreferredSize(dimensionBotonSecundario());
 
-        setMinimumSize(new Dimension(
-                ANCHO_BOTON_MINIMO,
-                ALTO_BOTON_PRINCIPAL
-        ));
+        setMinimumSize(
+                new Dimension(
+                        ANCHO_BOTON_MINIMO,
+                        ALTO_BOTON_PRINCIPAL
+                )
+        );
 
-        setMaximumSize(new Dimension(
-                Integer.MAX_VALUE,
-                ALTO_BOTON_PRINCIPAL
-        ));
+        setMaximumSize(
+                new Dimension(
+                        Integer.MAX_VALUE,
+                        ALTO_BOTON_PRINCIPAL
+                )
+        );
 
-        // Accesibilidad.
         getAccessibleContext().setAccessibleName(
                 textoOriginal
         );
@@ -129,26 +118,60 @@ public class BotonSecundario extends JButton {
     }
 
     // ==========================================
-    // ACTUALIZACIÓN VISUAL
+    // PINTADO PERSONALIZADO
+    // ==========================================
+
+    @Override
+    protected void paintComponent(Graphics g) {
+
+        Graphics2D g2 = (Graphics2D) g.create();
+
+        try {
+
+            g2.setRenderingHint(
+                    RenderingHints.KEY_ANTIALIASING,
+                    RenderingHints.VALUE_ANTIALIAS_ON
+            );
+
+            Color fondo;
+
+            if (!isEnabled()) {
+                fondo = FONDO;
+            } else if (hover) {
+                fondo = NAV_HOVER;
+            } else {
+                fondo = SUPERFICIE;
+            }
+
+            g2.setColor(fondo);
+
+            g2.fillRoundRect(
+                    0,
+                    0,
+                    getWidth(),
+                    getHeight(),
+                    8,
+                    8
+            );
+
+        } finally {
+            g2.dispose();
+        }
+
+        super.paintComponent(g);
+    }
+
+    // ==========================================
+    // ESTILO
     // ==========================================
 
     private void actualizarEstilo() {
 
-        if (!isEnabled()) {
-
-            setBackground(FONDO);
-            setForeground(TEXTO_DESHABILITADO);
-
-        } else if (hover) {
-
-            setBackground(NAV_HOVER);
-            setForeground(TEXTO);
-
-        } else {
-
-            setBackground(SUPERFICIE);
-            setForeground(TEXTO);
-        }
+        setForeground(
+                isEnabled()
+                        ? TEXTO
+                        : TEXTO_DESHABILITADO
+        );
 
         repaint();
     }
@@ -169,9 +192,6 @@ public class BotonSecundario extends JButton {
     // MÉTODOS PÚBLICOS
     // ==========================================
 
-    /**
-     * Actualiza el texto del botón.
-     */
     public void setTexto(String texto) {
 
         textoOriginal = texto != null ? texto : "";
@@ -188,17 +208,10 @@ public class BotonSecundario extends JButton {
         repaint();
     }
 
-    /**
-     * Devuelve el texto original del botón.
-     */
     public String getTextoOriginal() {
-
         return textoOriginal;
     }
 
-    /**
-     * Configura el icono del botón.
-     */
     public void configurarIcono(Icon icono) {
 
         setIcon(icono);

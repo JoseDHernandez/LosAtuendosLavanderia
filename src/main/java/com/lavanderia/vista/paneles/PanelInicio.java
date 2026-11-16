@@ -219,10 +219,8 @@ public class PanelInicio extends JPanel implements IModuloVista {
             return;
         }
 
-        int columnas = Math.max(
-                1,
-                Math.min(4, ancho / ANCHO_TARJETA_MINIMO)
-        );
+        int columnas = Math.clamp(ancho / ANCHO_TARJETA_MINIMO,
+                1, 4);
 
         GridLayout layout = (GridLayout) panelIndicadores.getLayout();
 

@@ -1,4 +1,3 @@
-
 package com.lavanderia.vista.paneles.alquileres;
 
 import com.lavanderia.modelo.alquiler.Alquiler;
@@ -16,12 +15,17 @@ import com.lavanderia.servicio.interfaces.IGestorPrendas;
 import com.lavanderia.validacion.ResultadoValidacion;
 import com.lavanderia.validacion.ValidacionException;
 import com.lavanderia.validacion.alquiler.IAlquilerValidator;
+import com.lavanderia.vista.componentes.BotonPrincipal;
 import com.lavanderia.vista.componentes.BotonSecundario;
 import com.lavanderia.vista.componentes.SelectorFecha;
 import com.lavanderia.vista.estilos.EstilosUI;
+import com.lavanderia.vista.estilos.IconosUI;
 import com.lavanderia.vista.paneles.comunes.PanelFormulario;
+import com.lavanderia.vista.paneles.comunes.PanelTabla;
 
 import javax.swing.*;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.math.BigDecimal;
@@ -30,19 +34,25 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
 /**
  * Formulario para registrar y editar contratos de alquiler.
  *
- * La vista trabaja con interfaces de servicio y no accede
- * directamente a los DAO ni a la base de datos.
+ * Utiliza interfaces de servicio y componentes comunes.
+ * La disponibilidad se consulta mediante IGestorAlquiler.
  */
 public class FormularioAlquileres extends JDialog {
+
+    // ==========================================
+    // DEPENDENCIAS
+    // ==========================================
 
     private final IGestorPersonas gestorPersonas;
     private final IGestorPrendas gestorPrendas;
@@ -53,45 +63,78 @@ public class FormularioAlquileres extends JDialog {
 
     private final IAlquiler alquilerEditar;
 
+    // ==========================================
+    // SELECTORES
+    // ==========================================
+
     private final JComboBox<ICliente> selectorCliente;
     private final JComboBox<IEmpleado> selectorEmpleado;
     private final JComboBox<IPrenda> selectorPrenda;
 
+    // ==========================================
+    // FECHAS
+    // ==========================================
+
     private final SelectorFecha fechaInicio;
     private final SelectorFecha fechaFin;
 
-    private final DefaultTableModel modeloTabla;
-    private final JTable tablaPrendas;
+    // ==========================================
+    // TABLA
+    // ==========================================
 
-    /*
-     * Se conserva el valor acordado de cada prenda.
-     * El índice de esta lista corresponde al índice de la tabla.
-     */
+    private final DefaultTableModel modeloTabla;
+    private final PanelTabla panelTabla;
+
+    // ==========================================
+    // PRENDAS SELECCIONADAS
+    // ==========================================
+
     private final List<IPrenda> prendasSeleccionadas;
     private final List<BigDecimal> valoresAcordados;
 
+    /*
+     * Identificadores de las prendas que pertenecían
+     * originalmente al alquiler que se está editando.
+     *
+     * Permite volver a agregarlas sin que la consulta de
+     * disponibilidad detecte el propio alquiler como conflicto.
+     */
+    private final Set<Long> idsPrendasOriginales;
+
+    // ==========================================
+    // ETIQUETAS Y ERRORES
+    // ==========================================
+
     private final JLabel etiquetaTotal;
+
     private final JLabel errorCliente;
     private final JLabel errorEmpleado;
+    private final JLabel errorPrenda;
     private final JLabel errorGeneral;
+
+    // ==========================================
+    // FORMULARIO Y BOTONES
+    // ==========================================
 
     private final PanelFormulario formulario;
 
+    private BotonPrincipal botonGuardar;
+    private BotonSecundario botonCancelar;
     private BotonSecundario botonAgregarPrenda;
     private BotonSecundario botonEliminarPrenda;
 
-    // ==================================================
-    // CONSTRUCTORES
-    // ==================================================
+    private boolean guardando;
 
-    /**
-     * Constructor para registrar un nuevo alquiler.
-     */
+    // ==========================================
+    // CONSTRUCTORES
+    // ==========================================
+
     public FormularioAlquileres(
             Window propietario,
             ISistemaFacade sistemaFacade,
             IAlquilerValidator validador,
-            Runnable alGuardar) {
+            Runnable alGuardar
+    ) {
 
         this(
                 propietario,
@@ -102,18 +145,13 @@ public class FormularioAlquileres extends JDialog {
         );
     }
 
-    /**
-     * Constructor para registrar o editar un alquiler.
-     *
-     * Si alquilerEditar es null, funciona en modo registro.
-     * En caso contrario, carga los datos del alquiler existente.
-     */
     public FormularioAlquileres(
             Window propietario,
             ISistemaFacade sistemaFacade,
             IAlquilerValidator validador,
             IAlquiler alquilerEditar,
-            Runnable alGuardar) {
+            Runnable alGuardar
+    ) {
 
         super(
                 propietario,
@@ -145,37 +183,54 @@ public class FormularioAlquileres extends JDialog {
 
         this.validador = Objects.requireNonNull(
                 validador,
-                "El validador de alquiler es obligatorio."
+                "El validador de alquileres es obligatorio."
         );
 
         this.alquilerEditar = alquilerEditar;
         this.alGuardar = alGuardar;
 
-        this.selectorCliente = new JComboBox<>();
-        this.selectorEmpleado = new JComboBox<>();
-        this.selectorPrenda = new JComboBox<>();
+        selectorCliente = new JComboBox<>();
+        selectorEmpleado = new JComboBox<>();
+        selectorPrenda = new JComboBox<>();
 
-        this.fechaInicio = new SelectorFecha("Fecha de inicio");
-        this.fechaFin = new SelectorFecha("Fecha de finalización");
+        fechaInicio = new SelectorFecha("Fecha de inicio");
+        fechaFin = new SelectorFecha("Fecha de finalización");
 
-        this.prendasSeleccionadas = new ArrayList<>();
-        this.valoresAcordados = new ArrayList<>();
+        // El rango inicial siempre es válido: hoy hasta mañana.
+        LocalDate hoy = LocalDate.now();
+        fechaInicio.setFecha(convertirAFecha(hoy));
+        fechaFin.setFecha(convertirAFecha(hoy.plusDays(1)));
 
-        this.modeloTabla = crearModeloTabla();
-        this.tablaPrendas = new JTable(modeloTabla);
+        prendasSeleccionadas = new ArrayList<>();
+        valoresAcordados = new ArrayList<>();
 
-        this.etiquetaTotal = new JLabel("Total: $0");
+        idsPrendasOriginales = new HashSet<>();
 
-        this.errorCliente = crearEtiquetaError();
-        this.errorEmpleado = crearEtiquetaError();
-        this.errorGeneral = crearEtiquetaError();
+        modeloTabla = crearModeloTabla();
 
-        this.formulario = new PanelFormulario();
+        panelTabla = new PanelTabla();
+        etiquetaTotal = new JLabel("Total: $0");
+
+        errorCliente = crearEtiquetaError();
+        errorEmpleado = crearEtiquetaError();
+        errorPrenda = crearEtiquetaError();
+        errorGeneral = crearEtiquetaError();
+
+        /*
+         * Se crea sin botones internos porque las acciones
+         * se ubican al final del formulario completo.
+         */
+        formulario = new PanelFormulario(
+                null,
+                null,
+                null,
+                null
+        );
 
         inicializarComponentes();
+
         cargarPersonas();
-        configurarRenderizadoresPersonas();
-        configurarSelectorPrendas();
+        configurarSelectores();
         configurarTablaPrendas();
 
         if (alquilerEditar == null) {
@@ -183,32 +238,92 @@ public class FormularioAlquileres extends JDialog {
         } else {
             cargarDatosAlquiler(alquilerEditar);
         }
+
+        // Se conectan después de asignar las fechas iniciales.
+        configurarEventosSelectorPrendas();
+        configurarEventosFechas();
+
+        setLocationRelativeTo(propietario);
     }
 
-    // ==================================================
+    // ==========================================
     // INICIALIZACIÓN
-    // ==================================================
+    // ==========================================
 
     private void inicializarComponentes() {
 
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setResizable(true);
 
-        JPanel panelPrincipal = new JPanel(
+        JPanel principal = new JPanel(
                 new BorderLayout(0, ESPACIADO_LG)
         );
 
-        panelPrincipal.setBackground(SUPERFICIE);
-        panelPrincipal.setBorder(MARGEN_PANEL_ESTANDAR);
+        principal.setBackground(SUPERFICIE);
+        principal.setBorder(MARGEN_PANEL_ESTANDAR);
 
-        // Encabezado.
-        JPanel panelEncabezado = new JPanel();
-
-        panelEncabezado.setLayout(
-                new BoxLayout(panelEncabezado, BoxLayout.Y_AXIS)
+        principal.add(
+                crearEncabezado(),
+                BorderLayout.NORTH
         );
 
-        panelEncabezado.setOpaque(false);
+        JPanel contenido = new JPanel(
+                new BorderLayout(0, ESPACIADO_LG)
+        );
+
+        contenido.setOpaque(false);
+
+        configurarFormularioGeneral();
+
+        contenido.add(
+                formulario,
+                BorderLayout.NORTH
+        );
+
+        contenido.add(
+                crearPanelPrendas(),
+                BorderLayout.CENTER
+        );
+
+        principal.add(
+                contenido,
+                BorderLayout.CENTER
+        );
+
+        principal.add(
+                crearPanelInferior(),
+                BorderLayout.SOUTH
+        );
+
+        setContentPane(principal);
+
+        setMinimumSize(
+                new Dimension(900, 720)
+        );
+
+        setPreferredSize(
+                new Dimension(1100, 850)
+        );
+
+        pack();
+    }
+
+    // ==========================================
+    // ENCABEZADO
+    // ==========================================
+
+    private JPanel crearEncabezado() {
+
+        JPanel panel = new JPanel();
+
+        panel.setLayout(
+                new BoxLayout(
+                        panel,
+                        BoxLayout.Y_AXIS
+                )
+        );
+
+        panel.setOpaque(false);
 
         JLabel titulo = crearEtiqueta(
                 alquilerEditar == null
@@ -224,106 +339,59 @@ public class FormularioAlquileres extends JDialog {
                 TEXTO_SECUNDARIO
         );
 
-        panelEncabezado.add(titulo);
-        panelEncabezado.add(
+        panel.add(titulo);
+
+        panel.add(
                 Box.createVerticalStrut(ESPACIADO_XS)
         );
-        panelEncabezado.add(descripcion);
 
-        // Formulario general.
-        configurarFormularioGeneral();
+        panel.add(descripcion);
 
-        // Sección de prendas.
-        JPanel panelPrendas = crearPanelPrendas();
-
-        JPanel panelContenido = new JPanel(
-                new BorderLayout(0, ESPACIADO_MD)
-        );
-
-        panelContenido.setOpaque(false);
-
-        panelContenido.add(
-                formulario,
-                BorderLayout.NORTH
-        );
-
-        panelContenido.add(
-                panelPrendas,
-                BorderLayout.CENTER
-        );
-
-        // Mensajes y acciones.
-        JPanel panelInferior = new JPanel(
-                new BorderLayout(0, ESPACIADO_SM)
-        );
-
-        panelInferior.setOpaque(false);
-
-        panelInferior.add(
-                errorGeneral,
-                BorderLayout.CENTER
-        );
-
-        panelPrincipal.add(
-                panelEncabezado,
-                BorderLayout.NORTH
-        );
-
-        panelPrincipal.add(
-                panelContenido,
-                BorderLayout.CENTER
-        );
-
-        panelPrincipal.add(
-                panelInferior,
-                BorderLayout.SOUTH
-        );
-
-        setContentPane(panelPrincipal);
-
-        setMinimumSize(new Dimension(850, 680));
-        setPreferredSize(new Dimension(950, 760));
-
-        pack();
-        setLocationRelativeTo(getOwner());
+        return panel;
     }
+
+    // ==========================================
+    // FORMULARIO GENERAL
+    // ==========================================
 
     private void configurarFormularioGeneral() {
 
-        JPanel campoCliente = crearCampo(
-                "Cliente",
-                selectorCliente,
-                errorCliente
+        formulario.agregarCampo(
+                crearCampo(
+                        "Cliente",
+                        selectorCliente,
+                        errorCliente
+                ),
+                0,
+                0
         );
 
-        JPanel campoEmpleado = crearCampo(
-                "Empleado responsable",
-                selectorEmpleado,
-                errorEmpleado
+        formulario.agregarCampo(
+                crearCampo(
+                        "Empleado responsable",
+                        selectorEmpleado,
+                        errorEmpleado
+                ),
+                0,
+                1
         );
 
-        formulario.agregarCampo(campoCliente, 0, 0);
-        formulario.agregarCampo(campoEmpleado, 0, 1);
-
-        formulario.agregarCampo(fechaInicio, 1, 0);
-        formulario.agregarCampo(fechaFin, 1, 1);
-
-        formulario.configurarBotonGuardar(
-                alquilerEditar == null
-                        ? "Registrar alquiler"
-                        : "Guardar cambios",
-                e -> guardarAlquiler()
+        formulario.agregarCampo(
+                fechaInicio,
+                1,
+                0
         );
 
-        formulario.configurarBotonCancelar(
-                "Cancelar",
-                e -> dispose()
+        formulario.agregarCampo(
+                fechaFin,
+                1,
+                1
         );
     }
 
-    // ==================================================
+    // ==========================================
     // COMPONENTES AUXILIARES
-    // ==================================================
+    // ==========================================
 
     private JLabel crearEtiquetaError() {
 
@@ -338,7 +406,8 @@ public class FormularioAlquileres extends JDialog {
     private JLabel crearEtiqueta(
             String texto,
             Font fuente,
-            Color color) {
+            Color color
+    ) {
 
         JLabel etiqueta = new JLabel(texto);
 
@@ -351,7 +420,8 @@ public class FormularioAlquileres extends JDialog {
     private JPanel crearCampo(
             String titulo,
             JComponent componente,
-            JLabel error) {
+            JLabel error
+    ) {
 
         JPanel panel = new JPanel(
                 new BorderLayout(0, ESPACIADO_XS)
@@ -365,214 +435,85 @@ public class FormularioAlquileres extends JDialog {
                 TEXTO
         );
 
-        panel.add(etiqueta, BorderLayout.NORTH);
-        panel.add(componente, BorderLayout.CENTER);
-        panel.add(error, BorderLayout.SOUTH);
-
-        return panel;
-    }
-
-    // ==================================================
-    // SECCIÓN DE PRENDAS
-    // ==================================================
-
-    private JPanel crearPanelPrendas() {
-
-        JPanel panel = new JPanel(
-                new BorderLayout(0, ESPACIADO_SM)
-        );
-
-        panel.setOpaque(false);
-
-        JLabel titulo = crearEtiqueta(
-                "Prendas del alquiler",
-                FUENTE_SECCION,
-                TEXTO
-        );
-
-        // Selector y botón para agregar.
-        JPanel panelSeleccion = new JPanel(
-                new BorderLayout(ESPACIADO_SM, 0)
-        );
-
-        panelSeleccion.setOpaque(false);
-
-        botonAgregarPrenda =
-                new BotonSecundario("Agregar prenda");
-
-        botonAgregarPrenda.addActionListener(
-                e -> agregarPrenda()
-        );
-
-        panelSeleccion.add(
-                selectorPrenda,
-                BorderLayout.CENTER
-        );
-
-        panelSeleccion.add(
-                botonAgregarPrenda,
-                BorderLayout.EAST
-        );
-
-        // Tabla.
-        JPanel panelTabla = new JPanel(new BorderLayout());
-
-        panelTabla.setOpaque(false);
-
-        JScrollPane scroll = new JScrollPane(tablaPrendas);
-
-        scroll.setPreferredSize(
-                new Dimension(650, 200)
-        );
-
-        panelTabla.add(scroll, BorderLayout.CENTER);
-
-        // Acciones inferiores.
-        JPanel panelInferior = new JPanel(
-                new BorderLayout()
-        );
-
-        panelInferior.setOpaque(false);
-
-        botonEliminarPrenda =
-                new BotonSecundario("Quitar seleccionada");
-
-        botonEliminarPrenda.addActionListener(
-                e -> eliminarPrenda()
-        );
-
-        etiquetaTotal.setFont(FUENTE_SECCION);
-        etiquetaTotal.setForeground(TEXTO);
-
-        panelInferior.add(
-                botonEliminarPrenda,
-                BorderLayout.WEST
-        );
-
-        panelInferior.add(
-                etiquetaTotal,
-                BorderLayout.EAST
-        );
-
-        JPanel panelCentral = new JPanel(
-                new BorderLayout(0, ESPACIADO_SM)
-        );
-
-        panelCentral.setOpaque(false);
-
-        panelCentral.add(
-                panelSeleccion,
+        panel.add(
+                etiqueta,
                 BorderLayout.NORTH
         );
 
-        panelCentral.add(
-                panelTabla,
+        panel.add(
+                componente,
                 BorderLayout.CENTER
         );
 
-        panelCentral.add(
-                panelInferior,
+        panel.add(
+                error,
                 BorderLayout.SOUTH
         );
-
-        panel.add(titulo, BorderLayout.NORTH);
-        panel.add(panelCentral, BorderLayout.CENTER);
 
         return panel;
     }
 
-    private DefaultTableModel crearModeloTabla() {
+    // ==========================================
+    // ESTILO DE SELECTORES
+    // ==========================================
 
-        return new DefaultTableModel(
-                new Object[]{
-                        "Referencia",
-                        "Marca",
-                        "Talla",
-                        "Valor acordado"
-                },
-                0
-        ) {
+    private void configurarSelectores() {
 
-            @Override
-            public boolean isCellEditable(
-                    int fila,
-                    int columna) {
+        configurarEstiloSelector(selectorCliente);
+        configurarEstiloSelector(selectorEmpleado);
+        configurarEstiloSelector(selectorPrenda);
 
-                return false;
-            }
-        };
+        configurarRenderizadoresPersonas();
+        configurarRenderizadorPrendas();
     }
 
-    private void configurarTablaPrendas() {
+    private void configurarEstiloSelector(
+            JComboBox<?> selector
+    ) {
 
-        tablaPrendas.setRowHeight(ALTO_FILA_TABLA);
+        selector.setFont(FUENTE_NORMAL);
+        selector.setForeground(TEXTO);
+        selector.setBackground(SUPERFICIE);
 
-        tablaPrendas.setSelectionMode(
-                ListSelectionModel.SINGLE_SELECTION
+        selector.setPreferredSize(
+                new Dimension(
+                        ANCHO_CAMPO_MINIMO,
+                        ALTO_CAMPO
+                )
         );
 
-        tablaPrendas.setFillsViewportHeight(true);
-        tablaPrendas.setFont(FUENTE_NORMAL);
-        tablaPrendas.setForeground(TEXTO);
-        tablaPrendas.setBackground(SUPERFICIE);
-
-        tablaPrendas.getTableHeader().setFont(FUENTE_ETIQUETA);
-        tablaPrendas.getTableHeader().setBackground(
-                SUPERFICIE_SECUNDARIA
+        selector.setMinimumSize(
+                new Dimension(
+                        ANCHO_CAMPO_MINIMO,
+                        ALTO_CAMPO
+                )
         );
 
-        tablaPrendas.getTableHeader().setForeground(TEXTO);
+        selector.setMaximumSize(
+                new Dimension(
+                        Integer.MAX_VALUE,
+                        ALTO_CAMPO
+                )
+        );
 
-        tablaPrendas.setAutoCreateRowSorter(true);
+        selector.setBorder(
+                BorderFactory.createCompoundBorder(
+                        BORDE_SIMPLE,
+                        BorderFactory.createEmptyBorder(
+                                0,
+                                ESPACIADO_SM,
+                                0,
+                                ESPACIADO_SM
+                        )
+                )
+        );
+
+        selector.setFocusable(true);
     }
 
-    // ==================================================
-    // CARGA DE PERSONAS
-    // ==================================================
-
-    private void cargarPersonas() {
-
-        selectorCliente.removeAllItems();
-        selectorEmpleado.removeAllItems();
-
-        List<ICliente> clientes =
-                gestorPersonas.listarClientes();
-
-        List<IEmpleado> empleados =
-                gestorPersonas.listarEmpleados();
-
-        if (clientes != null) {
-            clientes.stream()
-                    .filter(Objects::nonNull)
-                    .forEach(selectorCliente::addItem);
-        }
-
-        if (empleados != null) {
-            empleados.stream()
-                    .filter(Objects::nonNull)
-                    .forEach(selectorEmpleado::addItem);
-        }
-
-        selectorCliente.setEnabled(
-                selectorCliente.getItemCount() > 0
-        );
-
-        selectorEmpleado.setEnabled(
-                selectorEmpleado.getItemCount() > 0
-        );
-
-        if (selectorCliente.getItemCount() == 0) {
-            errorCliente.setText(
-                    "No hay clientes registrados."
-            );
-        }
-
-        if (selectorEmpleado.getItemCount() == 0) {
-            errorEmpleado.setText(
-                    "No hay empleados registrados."
-            );
-        }
-    }
+    // ==========================================
+    // RENDERIZADORES DE PERSONAS
+    // ==========================================
 
     private void configurarRenderizadoresPersonas() {
 
@@ -585,7 +526,8 @@ public class FormularioAlquileres extends JDialog {
                             Object valor,
                             int indice,
                             boolean seleccionado,
-                            boolean enfocado) {
+                            boolean enfocado
+                    ) {
 
                         super.getListCellRendererComponent(
                                 lista,
@@ -596,6 +538,7 @@ public class FormularioAlquileres extends JDialog {
                         );
 
                         if (valor instanceof ICliente cliente) {
+
                             setText(
                                     cliente.getNombre()
                                             + " - "
@@ -617,7 +560,8 @@ public class FormularioAlquileres extends JDialog {
                             Object valor,
                             int indice,
                             boolean seleccionado,
-                            boolean enfocado) {
+                            boolean enfocado
+                    ) {
 
                         super.getListCellRendererComponent(
                                 lista,
@@ -628,6 +572,7 @@ public class FormularioAlquileres extends JDialog {
                         );
 
                         if (valor instanceof IEmpleado empleado) {
+
                             setText(
                                     empleado.getNombre()
                                             + " - "
@@ -641,11 +586,61 @@ public class FormularioAlquileres extends JDialog {
         );
     }
 
-    // ==================================================
-    // CARGA DE PRENDAS
-    // ==================================================
+    // ==========================================
+    // CARGA DE PERSONAS
+    // ==========================================
 
-    private void configurarSelectorPrendas() {
+    private void cargarPersonas() {
+
+        selectorCliente.removeAllItems();
+        selectorEmpleado.removeAllItems();
+
+        List<ICliente> clientes =
+                gestorPersonas.listarClientes();
+
+        List<IEmpleado> empleados =
+                gestorPersonas.listarEmpleados();
+
+        if (clientes != null) {
+
+            clientes.stream()
+                    .filter(Objects::nonNull)
+                    .forEach(selectorCliente::addItem);
+        }
+
+        if (empleados != null) {
+
+            empleados.stream()
+                    .filter(Objects::nonNull)
+                    .forEach(selectorEmpleado::addItem);
+        }
+
+        selectorCliente.setEnabled(
+                selectorCliente.getItemCount() > 0
+        );
+
+        selectorEmpleado.setEnabled(
+                selectorEmpleado.getItemCount() > 0
+        );
+
+        errorCliente.setText(
+                selectorCliente.getItemCount() == 0
+                        ? "No hay clientes registrados."
+                        : " "
+        );
+
+        errorEmpleado.setText(
+                selectorEmpleado.getItemCount() == 0
+                        ? "No hay empleados registrados."
+                        : " "
+        );
+    }
+
+    // ==========================================
+    // RENDERIZADOR DE PRENDAS
+    // ==========================================
+
+    private void configurarRenderizadorPrendas() {
 
         selectorPrenda.setRenderer(
                 new DefaultListCellRenderer() {
@@ -656,7 +651,8 @@ public class FormularioAlquileres extends JDialog {
                             Object valor,
                             int indice,
                             boolean seleccionado,
-                            boolean enfocado) {
+                            boolean enfocado
+                    ) {
 
                         super.getListCellRendererComponent(
                                 lista,
@@ -667,6 +663,7 @@ public class FormularioAlquileres extends JDialog {
                         );
 
                         if (valor instanceof IPrenda prenda) {
+
                             setText(
                                     prenda.getReferencia()
                                             + " | "
@@ -684,42 +681,469 @@ public class FormularioAlquileres extends JDialog {
         );
     }
 
-    private void cargarPrendasDisponibles() {
+    // ==========================================
+    // ACTUALIZACIÓN DEL SELECTOR DE PRENDAS
+    // ==========================================
 
-        selectorPrenda.removeAllItems();
+    /**
+     * Se actualiza la disponibilidad cada vez que el usuario
+     * abre el selector.
+     *
+     * Así se utilizan las fechas que estén seleccionadas
+     * en ese momento, sin depender de la implementación
+     * interna de SelectorFecha.
+     */
+    /**
+     * Actualiza la disponibilidad al cambiar las fechas.
+     * También confirma la edición manual al salir del campo.
+     */
+    private void configurarEventosFechas() {
 
-        List<IPrenda> prendas =
-                gestorPrendas.listarPrendas();
-
-        if (prendas == null) {
-            selectorPrenda.setEnabled(false);
-            return;
-        }
-
-        prendas.stream()
-                .filter(Objects::nonNull)
-                .filter(prenda ->
-                        prenda.getEstado() == EstadoPrenda.DISPONIBLE
-                )
-                .filter(prenda ->
-                        !contienePrenda(prenda.getIdPrenda())
-                )
-                .forEach(selectorPrenda::addItem);
-
-        selectorPrenda.setEnabled(
-                selectorPrenda.getItemCount() > 0
+        fechaInicio.getSelector().addChangeListener(
+                evento -> actualizarDisponibilidadPorFecha()
         );
 
-        if (botonAgregarPrenda != null) {
-            botonAgregarPrenda.setEnabled(
-                    selectorPrenda.getItemCount() > 0
+        fechaFin.getSelector().addChangeListener(
+                evento -> actualizarDisponibilidadPorFecha()
+        );
+
+        JSpinner.DateEditor editorInicio =
+                (JSpinner.DateEditor) fechaInicio.getSelector().getEditor();
+
+        JSpinner.DateEditor editorFin =
+                (JSpinner.DateEditor) fechaFin.getSelector().getEditor();
+
+        editorInicio.getTextField().addFocusListener(
+                new java.awt.event.FocusAdapter() {
+                    @Override
+                    public void focusLost(java.awt.event.FocusEvent evento) {
+                        actualizarDisponibilidadPorFecha();
+                    }
+                }
+        );
+
+        editorFin.getTextField().addFocusListener(
+                new java.awt.event.FocusAdapter() {
+                    @Override
+                    public void focusLost(java.awt.event.FocusEvent evento) {
+                        actualizarDisponibilidadPorFecha();
+                    }
+                }
+        );
+    }
+
+    private void actualizarDisponibilidadPorFecha() {
+
+        try {
+            obtenerFecha(fechaInicio);
+            obtenerFecha(fechaFin);
+            cargarPrendasDisponibles();
+
+        } catch (RuntimeException ex) {
+
+            selectorPrenda.removeAllItems();
+            selectorPrenda.setEnabled(false);
+            botonAgregarPrenda.setEnabled(false);
+
+            mostrarErrorPrenda(
+                    "Ingrese fechas válidas para consultar las prendas."
             );
         }
     }
 
-    // ==================================================
+    private void configurarEventosSelectorPrendas() {
+
+        selectorPrenda.addPopupMenuListener(
+                new PopupMenuListener() {
+
+                    @Override
+                    public void popupMenuWillBecomeVisible(
+                            PopupMenuEvent evento
+                    ) {
+
+                        cargarPrendasDisponibles();
+                    }
+
+                    @Override
+                    public void popupMenuWillBecomeInvisible(
+                            PopupMenuEvent evento
+                    ) {
+                    }
+
+                    @Override
+                    public void popupMenuCanceled(
+                            PopupMenuEvent evento
+                    ) {
+                    }
+                }
+        );
+    }
+
+    /**
+     * Consulta el catálogo y conserva solamente las prendas:
+     *
+     * 1. Registradas y en estado DISPONIBLE.
+     * 2. No agregadas todavía a la tabla.
+     * 3. Sin conflictos en el intervalo seleccionado.
+     *
+     * En edición, las prendas que pertenecían originalmente
+     * al alquiler se consideran elegibles porque el DAO
+     * excluye el propio alquiler al actualizarlo.
+     */
+    private void cargarPrendasDisponibles() {
+
+        selectorPrenda.removeAllItems();
+
+        limpiarErrorPrenda();
+
+        List<IPrenda> prendas;
+
+        try {
+
+            prendas = gestorPrendas.listarPrendas();
+
+        } catch (RuntimeException ex) {
+
+            selectorPrenda.setEnabled(false);
+            botonAgregarPrenda.setEnabled(false);
+
+            mostrarErrorPrenda(
+                    obtenerMensajeError(
+                            ex,
+                            "No fue posible consultar el inventario."
+                    )
+            );
+
+            return;
+        }
+
+        if (prendas == null) {
+
+            selectorPrenda.setEnabled(false);
+            botonAgregarPrenda.setEnabled(false);
+
+            mostrarErrorPrenda(
+                    "No fue posible consultar las prendas registradas."
+            );
+
+            return;
+        }
+
+        LocalDate inicio;
+        LocalDate fin;
+
+        try {
+
+            inicio = obtenerFecha(fechaInicio);
+            fin = obtenerFecha(fechaFin);
+
+            if (!fin.isAfter(inicio)) {
+
+                throw new ValidacionException(
+                        "La fecha de finalización debe ser posterior a la fecha de inicio."
+                );
+            }
+
+        } catch (RuntimeException ex) {
+
+            selectorPrenda.setEnabled(false);
+            botonAgregarPrenda.setEnabled(false);
+
+            mostrarErrorPrenda(
+                    "Seleccione un rango de fechas válido para consultar las prendas."
+            );
+
+            return;
+        }
+
+        int cantidadDisponibles = 0;
+
+        for (IPrenda prenda : prendas) {
+
+            if (prenda == null) {
+                continue;
+            }
+
+            long idPrenda = prenda.getIdPrenda();
+
+            if (contienePrenda(idPrenda)) {
+                continue;
+            }
+
+            boolean perteneceAlquilerActual =
+                    idsPrendasOriginales.contains(idPrenda);
+
+            if (!perteneceAlquilerActual
+                    && prenda.getEstado() != EstadoPrenda.DISPONIBLE) {
+                continue;
+            }
+
+            if (!estaDisponibleParaFechas(
+                    prenda,
+                    inicio,
+                    fin
+            )) {
+                continue;
+            }
+
+            selectorPrenda.addItem(prenda);
+            cantidadDisponibles++;
+        }
+
+        boolean hayDisponibles = cantidadDisponibles > 0;
+
+        selectorPrenda.setEnabled(hayDisponibles);
+        botonAgregarPrenda.setEnabled(hayDisponibles);
+
+        if (!hayDisponibles) {
+
+            mostrarErrorPrenda(
+                    "No hay prendas disponibles para las fechas seleccionadas."
+            );
+        }
+
+        selectorPrenda.revalidate();
+        selectorPrenda.repaint();
+    }
+
+    /**
+     * Consulta disponibilidad para una sola prenda.
+     *
+     * Se usa una lista de un elemento porque el método actual
+     * del gestor devuelve un único boolean para toda la lista.
+     */
+    private boolean estaDisponibleParaFechas(
+            IPrenda prenda,
+            LocalDate inicio,
+            LocalDate fin
+    ) {
+
+        if (prenda == null) {
+            return false;
+        }
+
+        if (prenda.getEstado() != EstadoPrenda.DISPONIBLE) {
+            return false;
+        }
+
+        long idPrenda = prenda.getIdPrenda();
+
+        /*
+         * Si la prenda pertenecía al alquiler que se está editando,
+         * el conflicto que se consulta correspondería al propio
+         * alquiler. Se permite seleccionarla porque el DAO de
+         * actualización excluye ese alquiler de sus conflictos.
+         */
+        if (alquilerEditar != null
+                && idsPrendasOriginales.contains(idPrenda)) {
+            return true;
+        }
+
+        try {
+
+            return gestorAlquiler.verificarDisponibilidad(
+                    List.of(idPrenda),
+                    inicio,
+                    fin
+            );
+
+        } catch (RuntimeException ex) {
+
+            /*
+             * Ante una respuesta inválida o un error de consulta,
+             * la prenda no se ofrece como disponible.
+             */
+            return false;
+        }
+    }
+
+    // ==========================================
+    // TABLA DE PRENDAS
+    // ==========================================
+
+    private DefaultTableModel crearModeloTabla() {
+
+        return new DefaultTableModel(
+                new Object[]{
+                        "Referencia",
+                        "Marca",
+                        "Talla",
+                        "Valor acordado"
+                },
+                0
+        ) {
+
+            @Override
+            public boolean isCellEditable(
+                    int fila,
+                    int columna
+            ) {
+
+                return false;
+            }
+        };
+    }
+
+    private void configurarTablaPrendas() {
+
+        panelTabla.setBusquedaVisible(false);
+        panelTabla.setPanelFiltrosVisible(false);
+        panelTabla.setModelo(modeloTabla);
+
+        panelTabla.getTablaDatos()
+                .setOrdenamientoHabilitado(false);
+
+        JTable tabla = panelTabla.getTablaDatos().getTabla();
+
+        tabla.setRowHeight(ALTO_FILA_TABLA);
+
+        tabla.setSelectionMode(
+                ListSelectionModel.SINGLE_SELECTION
+        );
+
+        tabla.setFillsViewportHeight(true);
+    }
+
+    // ==========================================
+    // PANEL DE PRENDAS
+    // ==========================================
+
+    private JPanel crearPanelPrendas() {
+
+        JPanel panel = new JPanel(
+                new BorderLayout(0, ESPACIADO_SM)
+        );
+
+        panel.setOpaque(false);
+
+        JLabel titulo = crearEtiqueta(
+                "Prendas del alquiler",
+                FUENTE_SECCION,
+                TEXTO
+        );
+
+        // ------------------------------------------
+        // SELECTOR Y BOTÓN AGREGAR
+        // ------------------------------------------
+
+        JPanel panelSeleccion = new JPanel(
+                new BorderLayout(ESPACIADO_SM, 0)
+        );
+
+        panelSeleccion.setOpaque(false);
+
+        botonAgregarPrenda =
+                new BotonSecundario("Agregar prenda");
+
+        botonAgregarPrenda.configurarIcono(
+                IconosUI.agregar()
+        );
+
+        botonAgregarPrenda.addActionListener(
+                e -> agregarPrenda()
+        );
+
+        panelSeleccion.add(
+                selectorPrenda,
+                BorderLayout.CENTER
+        );
+
+        panelSeleccion.add(
+                botonAgregarPrenda,
+                BorderLayout.EAST
+        );
+
+        JPanel panelSelector = new JPanel(
+                new BorderLayout(0, ESPACIADO_XS)
+        );
+
+        panelSelector.setOpaque(false);
+
+        panelSelector.add(
+                panelSeleccion,
+                BorderLayout.CENTER
+        );
+
+        panelSelector.add(
+                errorPrenda,
+                BorderLayout.SOUTH
+        );
+
+        // ------------------------------------------
+        // ACCIONES Y TOTAL
+        // ------------------------------------------
+
+        botonEliminarPrenda =
+                new BotonSecundario("Quitar seleccionada");
+
+        botonEliminarPrenda.configurarIcono(
+                IconosUI.eliminar()
+        );
+
+        botonEliminarPrenda.addActionListener(
+                e -> eliminarPrenda()
+        );
+
+        etiquetaTotal.setFont(FUENTE_SECCION);
+        etiquetaTotal.setForeground(TEXTO);
+
+        JPanel panelAccionesTabla = new JPanel(
+                new BorderLayout()
+        );
+
+        panelAccionesTabla.setOpaque(false);
+
+        panelAccionesTabla.add(
+                botonEliminarPrenda,
+                BorderLayout.WEST
+        );
+
+        panelAccionesTabla.add(
+                etiquetaTotal,
+                BorderLayout.EAST
+        );
+
+        // ------------------------------------------
+        // CONTENIDO
+        // ------------------------------------------
+
+        JPanel centro = new JPanel(
+                new BorderLayout(0, ESPACIADO_SM)
+        );
+
+        centro.setOpaque(false);
+
+        centro.add(
+                panelSelector,
+                BorderLayout.NORTH
+        );
+
+        centro.add(
+                panelTabla,
+                BorderLayout.CENTER
+        );
+
+        centro.add(
+                panelAccionesTabla,
+                BorderLayout.SOUTH
+        );
+
+        panel.add(
+                titulo,
+                BorderLayout.NORTH
+        );
+
+        panel.add(
+                centro,
+                BorderLayout.CENTER
+        );
+
+        return panel;
+    }
+
+    // ==========================================
     // CARGAR ALQUILER PARA EDICIÓN
-    // ==================================================
+    // ==========================================
 
     private void cargarDatosAlquiler(IAlquiler alquiler) {
 
@@ -728,24 +1152,28 @@ public class FormularioAlquileres extends JDialog {
         }
 
         if (alquiler.getCliente() != null) {
+
             seleccionarCliente(
                     alquiler.getCliente().getIdentificacion()
             );
         }
 
         if (alquiler.getEmpleado() != null) {
+
             seleccionarEmpleado(
                     alquiler.getEmpleado().getIdentificacion()
             );
         }
 
         if (alquiler.getFechaInicio() != null) {
+
             fechaInicio.setFecha(
                     convertirAFecha(alquiler.getFechaInicio())
             );
         }
 
         if (alquiler.getFechaFinPrevista() != null) {
+
             fechaFin.setFecha(
                     convertirAFecha(alquiler.getFechaFinPrevista())
             );
@@ -753,9 +1181,12 @@ public class FormularioAlquileres extends JDialog {
 
         prendasSeleccionadas.clear();
         valoresAcordados.clear();
+        idsPrendasOriginales.clear();
+
         modeloTabla.setRowCount(0);
 
-        List<IDetalleAlquiler> detalles = alquiler.getDetalles();
+        List<IDetalleAlquiler> detalles =
+                alquiler.getDetalles();
 
         if (detalles != null) {
 
@@ -773,6 +1204,10 @@ public class FormularioAlquileres extends JDialog {
                 if (valorAcordado == null) {
                     valorAcordado = obtenerPrecioActual(prenda);
                 }
+
+                idsPrendasOriginales.add(
+                        prenda.getIdPrenda()
+                );
 
                 agregarPrendaALaTabla(
                         prenda,
@@ -797,7 +1232,8 @@ public class FormularioAlquileres extends JDialog {
 
             if (cliente != null
                     && identificacion.equals(
-                    cliente.getIdentificacion())) {
+                    cliente.getIdentificacion()
+            )) {
 
                 selectorCliente.setSelectedIndex(i);
                 return;
@@ -821,7 +1257,8 @@ public class FormularioAlquileres extends JDialog {
 
             if (empleado != null
                     && identificacion.equals(
-                    empleado.getIdentificacion())) {
+                    empleado.getIdentificacion()
+            )) {
 
                 selectorEmpleado.setSelectedIndex(i);
                 return;
@@ -833,14 +1270,16 @@ public class FormularioAlquileres extends JDialog {
         );
     }
 
-    // ==================================================
+    // ==========================================
     // FECHAS
-    // ==================================================
+    // ==========================================
 
     private Date convertirAFecha(LocalDate fecha) {
 
         return Date.from(
-                fecha.atStartOfDay(ZoneId.systemDefault()).toInstant()
+                fecha.atStartOfDay(
+                        ZoneId.systemDefault()
+                ).toInstant()
         );
     }
 
@@ -849,6 +1288,7 @@ public class FormularioAlquileres extends JDialog {
         Date fecha = selector.getFecha();
 
         if (fecha == null) {
+
             throw new ValidacionException(
                     "Debe seleccionar una fecha."
             );
@@ -859,28 +1299,87 @@ public class FormularioAlquileres extends JDialog {
                 .toLocalDate();
     }
 
-    // ==================================================
-    // AGREGAR Y ELIMINAR PRENDAS
-    // ==================================================
+    // ==========================================
+    // AGREGAR PRENDA
+    // ==========================================
 
     private void agregarPrenda() {
 
-        limpiarErrorGeneral();
+        limpiarErrorPrenda();
 
         IPrenda prenda =
                 (IPrenda) selectorPrenda.getSelectedItem();
 
         if (prenda == null) {
-            mostrarErrorGeneral(
-                    "Seleccione una prenda disponible para agregar."
+
+            mostrarErrorPrenda(
+                    "Seleccione una prenda disponible."
             );
+
             return;
         }
 
         if (contienePrenda(prenda.getIdPrenda())) {
-            mostrarErrorGeneral(
+
+            mostrarErrorPrenda(
                     "La prenda seleccionada ya está en el alquiler."
             );
+
+            return;
+        }
+
+        /*
+         * Se comprueba nuevamente la disponibilidad antes de agregar.
+         * El selector puede haber quedado abierto mientras otro usuario
+         * registraba un alquiler.
+         */
+        try {
+
+            LocalDate inicio = obtenerFecha(fechaInicio);
+            LocalDate fin = obtenerFecha(fechaFin);
+
+            if (!fin.isAfter(inicio)) {
+
+                mostrarErrorPrenda(
+                        "La fecha de finalización debe ser posterior a la fecha de inicio."
+                );
+
+                return;
+            }
+
+            if (prenda.getEstado() != EstadoPrenda.DISPONIBLE) {
+
+                mostrarErrorPrenda(
+                        "La prenda ya no se encuentra disponible."
+                );
+
+                cargarPrendasDisponibles();
+                return;
+            }
+
+            if (!estaDisponibleParaFechas(
+                    prenda,
+                    inicio,
+                    fin
+            )) {
+
+                mostrarErrorPrenda(
+                        "La prenda ya está reservada para esas fechas."
+                );
+
+                cargarPrendasDisponibles();
+                return;
+            }
+
+        } catch (RuntimeException ex) {
+
+            mostrarErrorPrenda(
+                    obtenerMensajeError(
+                            ex,
+                            "No fue posible comprobar la disponibilidad."
+                    )
+            );
+
             return;
         }
 
@@ -893,45 +1392,65 @@ public class FormularioAlquileres extends JDialog {
         cargarPrendasDisponibles();
     }
 
+    // ==========================================
+    // AGREGAR A LA TABLA
+    // ==========================================
+
     private void agregarPrendaALaTabla(
             IPrenda prenda,
-            BigDecimal valorAcordado) {
+            BigDecimal valorAcordado
+    ) {
 
         prendasSeleccionadas.add(prenda);
         valoresAcordados.add(valorAcordado);
 
-        modeloTabla.addRow(new Object[]{
-                prenda.getReferencia(),
-                prenda.getMarca(),
-                prenda.getTalla(),
-                valorAcordado
-        });
+        modeloTabla.addRow(
+                new Object[]{
+                        prenda.getReferencia(),
+                        prenda.getMarca(),
+                        prenda.getTalla(),
+                        valorAcordado
+                }
+        );
     }
+
+    // ==========================================
+    // ELIMINAR PRENDA
+    // ==========================================
 
     private void eliminarPrenda() {
 
-        limpiarErrorGeneral();
+        limpiarErrorPrenda();
 
-        int filaSeleccionada = tablaPrendas.getSelectedRow();
+        JTable tabla = panelTabla.getTablaDatos().getTabla();
 
-        if (filaSeleccionada == -1) {
-            mostrarErrorGeneral(
+        int filaVista = tabla.getSelectedRow();
+
+        if (filaVista == -1) {
+
+            mostrarErrorPrenda(
                     "Seleccione una prenda de la tabla para quitarla."
             );
+
             return;
         }
 
-        int filaModelo = tablaPrendas.convertRowIndexToModel(
-                filaSeleccionada
+        int filaModelo = tabla.convertRowIndexToModel(
+                filaVista
         );
 
         prendasSeleccionadas.remove(filaModelo);
         valoresAcordados.remove(filaModelo);
+
         modeloTabla.removeRow(filaModelo);
 
         actualizarTotal();
         cargarPrendasDisponibles();
     }
+
+    // ==========================================
+    // UTILIDADES DE PRENDAS
+    // ==========================================
 
     private boolean contienePrenda(long idPrenda) {
 
@@ -953,64 +1472,154 @@ public class FormularioAlquileres extends JDialog {
 
         BigDecimal total = valoresAcordados.stream()
                 .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                .reduce(
+                        BigDecimal.ZERO,
+                        BigDecimal::add
+                );
 
         etiquetaTotal.setText(
                 "Total: $" + total.toPlainString()
         );
     }
 
-    // ==================================================
+    // ==========================================
+    // PANEL INFERIOR Y BOTONES
+    // ==========================================
+
+    private JPanel crearPanelInferior() {
+
+        JPanel panel = new JPanel(
+                new BorderLayout(0, ESPACIADO_SM)
+        );
+
+        panel.setOpaque(false);
+
+        errorGeneral.setHorizontalAlignment(
+                SwingConstants.LEFT
+        );
+
+        JPanel acciones = new JPanel(
+                new FlowLayout(
+                        FlowLayout.RIGHT,
+                        ESPACIADO_SM,
+                        0
+                )
+        );
+
+        acciones.setOpaque(false);
+
+        botonCancelar =
+                new BotonSecundario("Cancelar");
+
+        botonCancelar.configurarIcono(
+                IconosUI.cancelar()
+        );
+
+        botonCancelar.addActionListener(
+                e -> dispose()
+        );
+
+        botonGuardar =
+                new BotonPrincipal(
+                        alquilerEditar == null
+                                ? "Registrar alquiler"
+                                : "Guardar cambios"
+                );
+
+        botonGuardar.configurarIcono(
+                IconosUI.guardar()
+        );
+
+        botonGuardar.addActionListener(
+                e -> guardarAlquiler()
+        );
+
+        acciones.add(botonCancelar);
+        acciones.add(botonGuardar);
+
+        panel.add(
+                errorGeneral,
+                BorderLayout.NORTH
+        );
+
+        panel.add(
+                acciones,
+                BorderLayout.SOUTH
+        );
+
+        getRootPane().setDefaultButton(botonGuardar);
+
+        return panel;
+    }
+
+    // ==========================================
     // VALIDACIÓN INICIAL
-    // ==================================================
+    // ==========================================
 
     private boolean validarSeleccionInicial() {
 
         boolean valido = true;
 
         if (selectorCliente.getSelectedItem() == null) {
+
             errorCliente.setText(
                     "Debe seleccionar un cliente."
             );
+
             valido = false;
+
         } else {
+
             errorCliente.setText(" ");
         }
 
         if (selectorEmpleado.getSelectedItem() == null) {
+
             errorEmpleado.setText(
                     "Debe seleccionar un empleado."
             );
+
             valido = false;
+
         } else {
+
             errorEmpleado.setText(" ");
         }
 
         if (prendasSeleccionadas.isEmpty()) {
-            mostrarErrorGeneral(
+
+            mostrarErrorPrenda(
                     "Debe agregar al menos una prenda al alquiler."
             );
-            valido = false;
-        }
 
-        if (!valido) {
-            revalidate();
-            repaint();
+            valido = false;
         }
 
         return valido;
     }
 
+    // ==========================================
+    // DATOS PARA VALIDACIÓN
+    // ==========================================
+
     private Map<String, String> construirDatosValidacion(
             ICliente cliente,
             IEmpleado empleado,
             LocalDate inicio,
-            LocalDate fin) {
+            LocalDate fin
+    ) {
 
         Map<String, String> datos = new HashMap<>();
 
-        datos.put("fechaInicio", inicio.toString());
-        datos.put("fechaFinPrevista", fin.toString());
+        datos.put(
+                "fechaInicio",
+                inicio.toString()
+        );
+
+        datos.put(
+                "fechaFinPrevista",
+                fin.toString()
+        );
 
         datos.put(
                 "identificacionCliente",
@@ -1025,8 +1634,13 @@ public class FormularioAlquileres extends JDialog {
         return datos;
     }
 
+    // ==========================================
+    // ERRORES DE VALIDACIÓN
+    // ==========================================
+
     private void mostrarErroresValidacion(
-            Map<String, String> errores) {
+            Map<String, String> errores
+    ) {
 
         limpiarErroresCampos();
 
@@ -1053,9 +1667,6 @@ public class FormularioAlquileres extends JDialog {
                 case "identificacionEmpleado" ->
                         errorEmpleado.setText(mensaje);
 
-                case "general" ->
-                        mostrarErrorGeneral(mensaje);
-
                 default ->
                         mostrarErrorGeneral(mensaje);
             }
@@ -1073,14 +1684,19 @@ public class FormularioAlquileres extends JDialog {
         errorCliente.setText(" ");
         errorEmpleado.setText(" ");
 
+        limpiarErrorPrenda();
         limpiarErrorGeneral();
     }
 
-    // ==================================================
-    // REGISTRO Y EDICIÓN
-    // ==================================================
+    // ==========================================
+    // GUARDAR ALQUILER
+    // ==========================================
 
     private void guardarAlquiler() {
+
+        if (guardando) {
+            return;
+        }
 
         limpiarErroresCampos();
 
@@ -1088,7 +1704,10 @@ public class FormularioAlquileres extends JDialog {
             return;
         }
 
-        formulario.getBotonGuardar().setEnabled(false);
+        guardando = true;
+
+        botonGuardar.setEnabled(false);
+        botonCancelar.setEnabled(false);
 
         try {
 
@@ -1101,7 +1720,10 @@ public class FormularioAlquileres extends JDialog {
             LocalDate inicio = obtenerFecha(fechaInicio);
             LocalDate fin = obtenerFecha(fechaFin);
 
-            // Validación de datos generales.
+            // --------------------------------------
+            // VALIDAR FECHAS Y PERSONAS
+            // --------------------------------------
+
             Map<String, String> datos =
                     construirDatosValidacion(
                             cliente,
@@ -1113,33 +1735,55 @@ public class FormularioAlquileres extends JDialog {
             ResultadoValidacion<Map<String, String>> resultado =
                     validador.validar(datos);
 
+            if (resultado == null) {
+                throw new IllegalStateException(
+                        "El validador no devolvió un resultado."
+                );
+            }
+
+            if (!resultado.esValido()) {
+                mostrarErroresValidacion(resultado.getErrores());
+                return;
+            }
+
             Map<String, String> datosValidados =
-                    resultado.obtenerValor();
+                    resultado.getValor().orElseThrow(
+                            () -> new ValidacionException(
+                                    "No fue posible obtener los datos validados."
+                            )
+                    );
 
-            LocalDate fechaInicioValidada = LocalDate.parse(
-                    datosValidados.get("fechaInicio")
-            );
+            LocalDate fechaInicioValidada =
+                    LocalDate.parse(
+                            datosValidados.get("fechaInicio")
+                    );
 
-            LocalDate fechaFinValidada = LocalDate.parse(
-                    datosValidados.get("fechaFinPrevista")
-            );
+            LocalDate fechaFinValidada =
+                    LocalDate.parse(
+                            datosValidados.get("fechaFinPrevista")
+                    );
 
-            // Construcción de identificadores de prendas.
-            List<Long> idsPrendas = prendasSeleccionadas.stream()
-                    .map(IPrenda::getIdPrenda)
-                    .toList();
+            // --------------------------------------
+            // VERIFICAR DISPONIBILIDAD EN REGISTRO
+            // --------------------------------------
 
             /*
              * En registro se realiza una comprobación previa.
+             * El propio GestorAlquiler también verifica la
+             * disponibilidad y el DAO la vuelve a comprobar
+             * dentro de la transacción.
              *
-             * En edición no se utiliza esta comprobación general,
-             * porque podría detectar el propio alquiler como conflicto.
-             *
-             * La actualización debe verificar la disponibilidad
-             * excluyendo el alquiler actual en la capa de servicio
-             * o dentro de la transacción del DAO.
+             * En edición no se hace esta consulta general porque
+             * detectaría el propio alquiler como conflicto.
+             * AlquilerDAOSQLite.actualizar() ya excluye su ID.
              */
+
             if (alquilerEditar == null) {
+
+                List<Long> idsPrendas =
+                        prendasSeleccionadas.stream()
+                                .map(IPrenda::getIdPrenda)
+                                .toList();
 
                 boolean disponibles =
                         gestorAlquiler.verificarDisponibilidad(
@@ -1149,19 +1793,30 @@ public class FormularioAlquileres extends JDialog {
                         );
 
                 if (!disponibles) {
-                    fechaFin.mostrarError(
-                            "Una o varias prendas no están disponibles "
-                                    + "para las fechas seleccionadas."
+
+                    mostrarErrorPrenda(
+                            "Una o varias prendas ya no están disponibles "
+                                    + "para las fechas seleccionadas. "
+                                    + "Actualice la selección."
                     );
+
+                    cargarPrendasDisponibles();
                     return;
                 }
             }
 
-            // Construir detalles conservando los valores acordados.
+            // --------------------------------------
+            // CONSTRUIR DETALLES
+            // --------------------------------------
+
             List<IDetalleAlquiler> detalles =
                     construirDetallesAlquiler();
 
             IAlquiler resultadoAlquiler;
+
+            // --------------------------------------
+            // REGISTRAR
+            // --------------------------------------
 
             if (alquilerEditar == null) {
 
@@ -1174,9 +1829,15 @@ public class FormularioAlquileres extends JDialog {
                 );
 
                 resultadoAlquiler =
-                        gestorAlquiler.registrarAlquiler(nuevoAlquiler);
+                        gestorAlquiler.registrarAlquiler(
+                                nuevoAlquiler
+                        );
 
             } else {
+
+                // ----------------------------------
+                // ACTUALIZAR
+                // ----------------------------------
 
                 IAlquiler alquilerActualizado = new Alquiler(
                         alquilerEditar.getIdAlquiler(),
@@ -1197,12 +1858,15 @@ public class FormularioAlquileres extends JDialog {
             }
 
             if (resultadoAlquiler == null) {
+
                 throw new IllegalStateException(
                         "La operación no devolvió el alquiler guardado."
                 );
             }
 
-            mostrarResultadoGuardado(resultadoAlquiler);
+            mostrarResultadoGuardado(
+                    resultadoAlquiler
+            );
 
             dispose();
 
@@ -1213,27 +1877,45 @@ public class FormularioAlquileres extends JDialog {
         } catch (ValidacionException ex) {
 
             if (ex.tieneErroresPorCampo()) {
-                mostrarErroresValidacion(ex.getErrores());
+
+                mostrarErroresValidacion(
+                        ex.getErrores()
+                );
+
             } else {
-                mostrarErrorGeneral(ex.getMessage());
+
+                mostrarErrorGeneral(
+                        obtenerMensajeError(
+                                ex,
+                                "Los datos del alquiler no son válidos."
+                        )
+                );
             }
 
         } catch (Exception ex) {
 
             mostrarErrorGeneral(
-                    ex.getMessage() == null
-                            ? "No fue posible guardar el alquiler."
-                            : "No fue posible guardar el alquiler: "
-                            + ex.getMessage()
+                    obtenerMensajeError(
+                            ex,
+                            "No fue posible guardar el alquiler."
+                    )
             );
 
         } finally {
 
+            guardando = false;
+
             if (isDisplayable()) {
-                formulario.getBotonGuardar().setEnabled(true);
+
+                botonGuardar.setEnabled(true);
+                botonCancelar.setEnabled(true);
             }
         }
     }
+
+    // ==========================================
+    // CONSTRUIR DETALLES
+    // ==========================================
 
     private List<IDetalleAlquiler> construirDetallesAlquiler() {
 
@@ -1242,7 +1924,9 @@ public class FormularioAlquileres extends JDialog {
         for (int i = 0; i < prendasSeleccionadas.size(); i++) {
 
             IPrenda prenda = prendasSeleccionadas.get(i);
-            BigDecimal valorAcordado = valoresAcordados.get(i);
+
+            BigDecimal valorAcordado =
+                    valoresAcordados.get(i);
 
             detalles.add(
                     new DetalleAlquiler(
@@ -1255,9 +1939,9 @@ public class FormularioAlquileres extends JDialog {
         return detalles;
     }
 
-    // ==================================================
-    // RESULTADOS Y ERRORES
-    // ==================================================
+    // ==========================================
+    // MENSAJES
+    // ==========================================
 
     private void mostrarResultadoGuardado(IAlquiler alquiler) {
 
@@ -1279,35 +1963,53 @@ public class FormularioAlquileres extends JDialog {
         );
     }
 
+    private void mostrarErrorPrenda(String mensaje) {
+
+        errorPrenda.setText(
+                mensaje == null || mensaje.isBlank()
+                        ? " "
+                        : mensaje
+        );
+
+        revalidate();
+        repaint();
+    }
+
+    private void limpiarErrorPrenda() {
+        errorPrenda.setText(" ");
+    }
+
     private void mostrarErrorGeneral(String mensaje) {
 
-        if (mensaje == null || mensaje.isBlank()) {
-            return;
-        }
-
-        errorGeneral.setText(mensaje);
-        errorGeneral.setVisible(true);
+        errorGeneral.setText(
+                mensaje == null || mensaje.isBlank()
+                        ? " "
+                        : mensaje
+        );
 
         revalidate();
         repaint();
     }
 
     private void limpiarErrorGeneral() {
-
         errorGeneral.setText(" ");
-        errorGeneral.setVisible(false);
-
-        revalidate();
-        repaint();
     }
 
-    // ==================================================
-    // ACCESO PÚBLICO
-    // ==================================================
+    private String obtenerMensajeError(
+            Exception ex,
+            String mensajePredeterminado
+    ) {
 
-    /**
-     * Muestra el formulario de manera modal.
-     */
+        return ex.getMessage() == null
+                || ex.getMessage().isBlank()
+                ? mensajePredeterminado
+                : ex.getMessage();
+    }
+
+    // ==========================================
+    // MOSTRAR FORMULARIO
+    // ==========================================
+
     public void mostrar() {
         setVisible(true);
     }

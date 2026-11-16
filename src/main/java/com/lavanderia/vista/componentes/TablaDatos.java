@@ -67,9 +67,11 @@ public class TablaDatos extends JPanel {
         tabla.setRowHeight(ALTO_FILA_TABLA);
         tabla.setRowMargin(0);
 
-        tabla.setShowGrid(false);
-        tabla.setIntercellSpacing(new Dimension(0, 0));
-
+        tabla.setShowGrid(true);
+        tabla.setShowHorizontalLines(false);
+        tabla.setGridColor(new Color(220, 224, 230));
+        tabla.setIntercellSpacing(new Dimension(1, 0));
+        tabla.setRowMargin(0);
         tabla.setSelectionMode(
                 ListSelectionModel.SINGLE_SELECTION
         );
@@ -118,6 +120,12 @@ public class TablaDatos extends JPanel {
     /**
      * Renderizador del encabezado con fondo primario.
      */
+
+    /**
+     * Renderizador del encabezado con fondo azul,
+     * texto blanco en negrita y centrado.
+     */
+
     private class JTableHeaderEstilizado
             extends DefaultTableCellRenderer {
 
@@ -127,23 +135,10 @@ public class TablaDatos extends JPanel {
             setBackground(PRIMARIO);
             setForeground(Color.WHITE);
 
-            setHorizontalAlignment(SwingConstants.LEFT);
-            setVerticalAlignment(SwingConstants.CENTER);
+            setFont(FUENTE_ETIQUETA.deriveFont(Font.BOLD));
 
-            setBorder(
-                    BorderFactory.createCompoundBorder(
-                            BorderFactory.createMatteBorder(
-                                    0, 0, 1, 1,
-                                    new Color(255, 255, 255, 65)
-                            ),
-                            BorderFactory.createEmptyBorder(
-                                    0,
-                                    ESPACIADO_MD - ESPACIADO_XS,
-                                    0,
-                                    ESPACIADO_MD - ESPACIADO_XS
-                            )
-                    )
-            );
+            setHorizontalAlignment(SwingConstants.CENTER);
+            setVerticalAlignment(SwingConstants.CENTER);
         }
 
         @Override
@@ -165,12 +160,38 @@ public class TablaDatos extends JPanel {
                     column
             );
 
+            setOpaque(true);
             setBackground(PRIMARIO);
             setForeground(Color.WHITE);
+
+            setFont(FUENTE_ETIQUETA.deriveFont(Font.BOLD));
+
+            setHorizontalAlignment(SwingConstants.CENTER);
+            setVerticalAlignment(SwingConstants.CENTER);
+
+            // Separador vertical blanco entre encabezados.
+            setBorder(
+                    BorderFactory.createCompoundBorder(
+                            BorderFactory.createMatteBorder(
+                                    0,
+                                    0,
+                                    1,
+                                    1,
+                                    new Color(255, 255, 255, 160)
+                            ),
+                            BorderFactory.createEmptyBorder(
+                                    0,
+                                    ESPACIADO_SM,
+                                    0,
+                                    ESPACIADO_SM
+                            )
+                    )
+            );
 
             return this;
         }
     }
+
 
     // ==========================================
     // CELDAS Y FILAS ALTERNADAS

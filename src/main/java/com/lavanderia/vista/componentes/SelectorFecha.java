@@ -5,17 +5,12 @@ import com.lavanderia.vista.estilos.EstilosUI;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.Calendar;
 import java.util.Date;
+import java.util.Calendar;
 
 import static com.lavanderia.vista.estilos.EstilosUI.*;
 
-/**
- * Componente para recoger o seleccionar fechas desde la interfaz.
- *
- * Se adapta al ancho disponible, mantiene una altura uniforme
- * y permite mostrar validaciones sin recortar sus mensajes.
- */
+/** Componente para recoger o seleccionar fechas desde la interfaz. */
 public class SelectorFecha extends JPanel {
 
     private final JLabel lblEtiqueta;
@@ -24,7 +19,7 @@ public class SelectorFecha extends JPanel {
 
     public SelectorFecha(String etiqueta) {
 
-        lblEtiqueta = new JLabel(etiqueta != null ? etiqueta : "");
+        lblEtiqueta = new JLabel(etiqueta);
 
         selector = new JSpinner(
                 new SpinnerDateModel(
@@ -60,15 +55,6 @@ public class SelectorFecha extends JPanel {
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         setBackground(SUPERFICIE);
         setOpaque(true);
-
-        setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        setMinimumSize(new Dimension(0, 0));
-
-        setMaximumSize(new Dimension(
-                Integer.MAX_VALUE,
-                Integer.MAX_VALUE
-        ));
     }
 
     // ==========================================
@@ -90,11 +76,6 @@ public class SelectorFecha extends JPanel {
                         0
                 )
         );
-
-        lblEtiqueta.setMaximumSize(new Dimension(
-                Integer.MAX_VALUE,
-                lblEtiqueta.getPreferredSize().height + ESPACIADO_SM
-        ));
     }
 
     // ==========================================
@@ -114,7 +95,8 @@ public class SelectorFecha extends JPanel {
         selector.setBorder(BORDE_CAMPO);
         selector.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JFormattedTextField campo = editor.getTextField();
+        JFormattedTextField campo =
+                editor.getTextField();
 
         campo.setFont(FUENTE_NORMAL);
         campo.setForeground(TEXTO);
@@ -128,36 +110,19 @@ public class SelectorFecha extends JPanel {
                 ESPACIADO_MD
         ));
 
-        campo.setPreferredSize(new Dimension(
-                ANCHO_CAMPO_MINIMO,
-                ALTO_CAMPO
-        ));
+        campo.setPreferredSize(
+                new Dimension(
+                        ANCHO_CAMPO_MINIMO,
+                        ALTO_CAMPO
+                )
+        );
 
-        campo.setMinimumSize(new Dimension(
-                0,
-                ALTO_CAMPO
-        ));
-
-        campo.setMaximumSize(new Dimension(
-                Integer.MAX_VALUE,
-                ALTO_CAMPO
-        ));
-
-        // El selector ocupa todo el ancho disponible del contenedor.
-        selector.setPreferredSize(new Dimension(
-                ANCHO_CAMPO_MINIMO,
-                ALTO_CAMPO
-        ));
-
-        selector.setMinimumSize(new Dimension(
-                0,
-                ALTO_CAMPO
-        ));
-
-        selector.setMaximumSize(new Dimension(
-                Integer.MAX_VALUE,
-                ALTO_CAMPO
-        ));
+        campo.setMaximumSize(
+                new Dimension(
+                        Integer.MAX_VALUE,
+                        ALTO_CAMPO
+                )
+        );
     }
 
     // ==========================================
@@ -180,20 +145,16 @@ public class SelectorFecha extends JPanel {
                 )
         );
 
-        lblError.setPreferredSize(new Dimension(
-                0,
-                ESPACIADO_LG
-        ));
+        lblError.setPreferredSize(
+                new Dimension(0, ESPACIADO_LG)
+        );
 
-        lblError.setMinimumSize(new Dimension(
-                0,
-                ESPACIADO_LG
-        ));
-
-        lblError.setMaximumSize(new Dimension(
-                Integer.MAX_VALUE,
-                ESPACIADO_LG
-        ));
+        lblError.setMaximumSize(
+                new Dimension(
+                        Integer.MAX_VALUE,
+                        ESPACIADO_LG
+                )
+        );
     }
 
     // ==========================================
@@ -201,6 +162,18 @@ public class SelectorFecha extends JPanel {
     // ==========================================
 
     public Date getFecha() {
+
+        try {
+            // Confirma el texto escrito manualmente antes de leer el modelo.
+            selector.commitEdit();
+
+        } catch (java.text.ParseException ex) {
+            throw new IllegalArgumentException(
+                    "La fecha ingresada no tiene un formato válido.",
+                    ex
+            );
+        }
+
         return (Date) selector.getValue();
     }
 
@@ -295,7 +268,6 @@ public class SelectorFecha extends JPanel {
         }
 
         lblError.setText(mensaje);
-        lblError.setToolTipText(mensaje);
 
         revalidate();
         repaint();
@@ -304,7 +276,6 @@ public class SelectorFecha extends JPanel {
     public void limpiarError() {
 
         lblError.setText(" ");
-        lblError.setToolTipText(null);
 
         revalidate();
         repaint();
@@ -319,37 +290,12 @@ public class SelectorFecha extends JPanel {
 
         super.setEnabled(enabled);
 
-        // Protege la inicialización del componente.
-        if (lblEtiqueta == null || selector == null || lblError == null) {
-            return;
-        }
-
         lblEtiqueta.setEnabled(enabled);
         selector.setEnabled(enabled);
         lblError.setEnabled(enabled);
-
-        JSpinner.DateEditor editor =
-                (JSpinner.DateEditor) selector.getEditor();
-
-        JFormattedTextField campo = editor.getTextField();
-
-        campo.setBackground(enabled ? SUPERFICIE : FONDO);
-        campo.setForeground(enabled ? TEXTO : TEXTO_DESHABILITADO);
     }
 
     public JSpinner getSelector() {
         return selector;
-    }
-
-    public void setEtiqueta(String texto) {
-
-        lblEtiqueta.setText(texto != null ? texto : "");
-
-        lblEtiqueta.setVisible(
-                texto != null && !texto.isBlank()
-        );
-
-        revalidate();
-        repaint();
     }
 }

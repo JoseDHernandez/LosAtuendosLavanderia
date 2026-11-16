@@ -13,6 +13,8 @@ import com.lavanderia.servicio.interfaces.IGestorLavanderia;
 
 import com.lavanderia.vista.componentes.BotonPrincipal;
 import com.lavanderia.vista.componentes.BotonSecundario;
+import com.lavanderia.vista.estilos.IconosUI;
+import com.lavanderia.vista.paneles.comunes.PanelTabla;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -26,15 +28,20 @@ import static com.lavanderia.vista.estilos.EstilosUI.*;
 public class FormularioEnvioLavanderia extends JDialog {
 
     // ==========================================
-    // ATRIBUTOS
+    // DEPENDENCIAS
     // ==========================================
 
     private final IGestorLavanderia gestorLavanderia;
+    private final Runnable alConfirmar;
+
+    // ==========================================
+    // CONTROLES
+    // ==========================================
 
     private final JSpinner campoCupo;
     private final JComboBox<String> selectorEstrategia;
 
-    private final JTable tabla;
+    private final PanelTabla panelTabla;
     private final DefaultTableModel modeloTabla;
 
     private final JLabel etiquetaCantidad;
@@ -42,8 +49,11 @@ public class FormularioEnvioLavanderia extends JDialog {
 
     private final BotonSecundario botonGenerar;
     private final BotonPrincipal botonConfirmar;
+    private final BotonSecundario botonCancelar;
 
-    private final Runnable alConfirmar;
+    // ==========================================
+    // ESTADO
+    // ==========================================
 
     private List<ISolicitudLavanderia> tanda;
 
@@ -56,7 +66,8 @@ public class FormularioEnvioLavanderia extends JDialog {
     public FormularioEnvioLavanderia(
             Window propietario,
             ISistemaFacade sistemaFacade,
-            Runnable alConfirmar) {
+            Runnable alConfirmar
+    ) {
 
         super(
                 propietario,
@@ -76,35 +87,40 @@ public class FormularioEnvioLavanderia extends JDialog {
 
         this.alConfirmar = alConfirmar;
 
-        this.campoCupo = new JSpinner(
+        campoCupo = new JSpinner(
                 new SpinnerNumberModel(10, 1, 1000, 1)
         );
 
-        this.selectorEstrategia = new JComboBox<>(
+        selectorEstrategia = new JComboBox<>(
                 new String[]{
                         "Prioridad",
                         "FIFO"
                 }
         );
 
-        this.modeloTabla = crearModeloTabla();
-        this.tabla = new JTable(modeloTabla);
+        modeloTabla = crearModeloTabla();
 
-        this.etiquetaCantidad = new JLabel(
+        panelTabla = new PanelTabla();
+
+        etiquetaCantidad = new JLabel(
                 "No se ha generado una tanda."
         );
 
-        this.etiquetaDescripcionEstrategia = new JLabel();
+        etiquetaDescripcionEstrategia = new JLabel();
 
-        this.botonGenerar = new BotonSecundario(
+        botonGenerar = new BotonSecundario(
                 "Generar tanda"
         );
 
-        this.botonConfirmar = new BotonPrincipal(
+        botonConfirmar = new BotonPrincipal(
                 "Confirmar envío"
         );
 
-        this.tanda = new ArrayList<>();
+        botonCancelar = new BotonSecundario(
+                "Cancelar"
+        );
+
+        tanda = new ArrayList<>();
 
         inicializarComponentes();
         configurarEventos();
@@ -121,56 +137,103 @@ public class FormularioEnvioLavanderia extends JDialog {
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setResizable(true);
 
-        JPanel panelPrincipal = new JPanel(
+        JPanel principal = new JPanel(
                 new BorderLayout(
                         0,
-                        ESPACIADO_MD
+                        ESPACIADO_LG
                 )
         );
 
-        panelPrincipal.setBorder(MARGEN_PANEL_ESTANDAR);
-        panelPrincipal.setBackground(SUPERFICIE);
+        principal.setBackground(SUPERFICIE);
+        principal.setBorder(MARGEN_PANEL_ESTANDAR);
 
-        JPanel panelSuperior = crearPanelConfiguracion();
-
-        configurarTabla();
-
-        JScrollPane scrollTabla = new JScrollPane(tabla);
-        scrollTabla.setBorder(BORDE_SIMPLE);
-
-        JPanel panelInferior = crearPanelInferior();
-
-        panelPrincipal.add(
-                panelSuperior,
+        principal.add(
+                crearEncabezado(),
                 BorderLayout.NORTH
         );
 
-        panelPrincipal.add(
-                scrollTabla,
+        principal.add(
+                crearPanelTabla(),
                 BorderLayout.CENTER
         );
 
-        panelPrincipal.add(
-                panelInferior,
+        principal.add(
+                crearPanelInferior(),
                 BorderLayout.SOUTH
         );
 
-        setContentPane(panelPrincipal);
-
-        setSize(950, 560);
+        setContentPane(principal);
 
         setMinimumSize(
-                new Dimension(800, 480)
+                new Dimension(
+                        ANCHO_MINIMO,
+                        ALTO_MINIMO
+                )
+        );
+
+        setSize(
+                ANCHO_VENTANA - 120,
+                ALTO_VENTANA - 100
         );
 
         setLocationRelativeTo(getOwner());
     }
 
     // ==========================================
-    // CONFIGURACIÓN SUPERIOR
+    // ENCABEZADO
     // ==========================================
 
-    private JPanel crearPanelConfiguracion() {
+    private JPanel crearEncabezado() {
+
+        JPanel encabezado = new JPanel(
+                new BorderLayout(
+                        0,
+                        ESPACIADO_MD
+                )
+        );
+
+        encabezado.setOpaque(false);
+
+        JPanel titulos = new JPanel(
+                new GridLayout(2, 1, 0, ESPACIADO_XS)
+        );
+
+        titulos.setOpaque(false);
+
+        JLabel titulo = crearEtiqueta(
+                "Configuración del envío",
+                FUENTE_SECCION,
+                TEXTO
+        );
+
+        JLabel subtitulo = crearEtiqueta(
+                "Define la capacidad y el criterio para seleccionar "
+                        + "las solicitudes que se enviarán a lavandería.",
+                FUENTE_NORMAL,
+                TEXTO_SECUNDARIO
+        );
+
+        titulos.add(titulo);
+        titulos.add(subtitulo);
+
+        encabezado.add(
+                titulos,
+                BorderLayout.NORTH
+        );
+
+        encabezado.add(
+                crearControlesConfiguracion(),
+                BorderLayout.CENTER
+        );
+
+        return encabezado;
+    }
+
+    // ==========================================
+    // CONFIGURACIÓN
+    // ==========================================
+
+    private JPanel crearControlesConfiguracion() {
 
         JPanel contenedor = new JPanel(
                 new BorderLayout(
@@ -181,55 +244,239 @@ public class FormularioEnvioLavanderia extends JDialog {
 
         contenedor.setOpaque(false);
 
-        JLabel titulo = crearEtiqueta(
-                "Configuración del envío",
-                FUENTE_SECCION,
-                TEXTO
+        JPanel controles = new JPanel(
+                new GridBagLayout()
         );
 
-        JPanel panelConfiguracion = new JPanel(
-                new FlowLayout(
-                        FlowLayout.LEFT,
-                        ESPACIADO_MD,
-                        0
+        controles.setOpaque(false);
+
+        GridBagConstraints gbc = new GridBagConstraints();
+
+        gbc.gridy = 0;
+        gbc.insets = new Insets(
+                0,
+                0,
+                0,
+                ESPACIADO_MD
+        );
+
+        gbc.anchor = GridBagConstraints.CENTER;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        // Capacidad máxima.
+
+        gbc.gridx = 0;
+        gbc.weightx = 0;
+
+        controles.add(
+                crearEtiqueta(
+                        "Capacidad máxima",
+                        FUENTE_ETIQUETA,
+                        TEXTO
+                ),
+                gbc
+        );
+
+        gbc.gridx = 1;
+
+        controles.add(
+                configurarCampoCupo(),
+                gbc
+        );
+
+        // Estrategia.
+
+        gbc.gridx = 2;
+
+        controles.add(
+                crearEtiqueta(
+                        "Estrategia de selección",
+                        FUENTE_ETIQUETA,
+                        TEXTO
+                ),
+                gbc
+        );
+
+        gbc.gridx = 3;
+        gbc.weightx = 1;
+
+        controles.add(
+                configurarSelectorEstrategia(),
+                gbc
+        );
+
+        // Botón generar.
+
+        gbc.gridx = 4;
+        gbc.weightx = 0;
+        gbc.insets = new Insets(
+                0,
+                0,
+                0,
+                0
+        );
+
+        botonGenerar.configurarIcono(
+                IconosUI.actualizar()
+        );
+
+        controles.add(
+                botonGenerar,
+                gbc
+        );
+
+        contenedor.add(
+                controles,
+                BorderLayout.CENTER
+        );
+
+        contenedor.add(
+                crearDescripcionEstrategia(),
+                BorderLayout.SOUTH
+        );
+
+        return contenedor;
+    }
+
+    // ==========================================
+    // CAMPO DE CUPO
+    // ==========================================
+
+    private JSpinner configurarCampoCupo() {
+
+        campoCupo.setFont(FUENTE_NORMAL);
+        campoCupo.setForeground(TEXTO);
+        campoCupo.setBackground(SUPERFICIE);
+
+        campoCupo.setPreferredSize(
+                new Dimension(
+                        ANCHO_CAMPO_MINIMO,
+                        ALTO_CAMPO
                 )
         );
 
-        panelConfiguracion.setOpaque(false);
-
-        JLabel etiquetaCupo = crearEtiqueta(
-                "Capacidad máxima",
-                FUENTE_ETIQUETA,
-                TEXTO
+        campoCupo.setMinimumSize(
+                new Dimension(
+                        ANCHO_CAMPO_MINIMO,
+                        ALTO_CAMPO
+                )
         );
 
-        campoCupo.setPreferredSize(
-                new Dimension(100, ALTO_CAMPO)
+        campoCupo.setBorder(
+                BorderFactory.createCompoundBorder(
+                        BORDE_SIMPLE,
+                        BorderFactory.createEmptyBorder(
+                                0,
+                                ESPACIADO_SM,
+                                0,
+                                ESPACIADO_SM
+                        )
+                )
         );
 
-        JLabel etiquetaEstrategia = crearEtiqueta(
-                "Estrategia de selección",
-                FUENTE_ETIQUETA,
-                TEXTO
+        JSpinner.NumberEditor editor =
+                new JSpinner.NumberEditor(campoCupo, "#");
+
+        campoCupo.setEditor(editor);
+
+        editor.getTextField().setFont(FUENTE_NORMAL);
+        editor.getTextField().setForeground(TEXTO);
+        editor.getTextField().setHorizontalAlignment(
+                SwingConstants.RIGHT
         );
 
-        selectorEstrategia.setPreferredSize(
-                new Dimension(170, ALTO_CAMPO)
-        );
+        return campoCupo;
+    }
+
+    // ==========================================
+    // SELECTOR DE ESTRATEGIA
+    // ==========================================
+
+    private JComboBox<String> configurarSelectorEstrategia() {
 
         selectorEstrategia.setFont(FUENTE_NORMAL);
+        selectorEstrategia.setForeground(TEXTO);
+        selectorEstrategia.setBackground(SUPERFICIE);
+        selectorEstrategia.setFocusable(true);
 
-        botonGenerar.configurarIcono(
-                com.lavanderia.vista.estilos.IconosUI.actualizar()
+        selectorEstrategia.setPreferredSize(
+                new Dimension(
+                        ANCHO_CAMPO_MINIMO,
+                        ALTO_CAMPO
+                )
         );
 
-        panelConfiguracion.add(etiquetaCupo);
-        panelConfiguracion.add(campoCupo);
+        selectorEstrategia.setMinimumSize(
+                new Dimension(
+                        ANCHO_CAMPO_MINIMO,
+                        ALTO_CAMPO
+                )
+        );
 
-        panelConfiguracion.add(etiquetaEstrategia);
-        panelConfiguracion.add(selectorEstrategia);
+        selectorEstrategia.setBorder(
+                BorderFactory.createCompoundBorder(
+                        BORDE_SIMPLE,
+                        BorderFactory.createEmptyBorder(
+                                0,
+                                ESPACIADO_SM,
+                                0,
+                                ESPACIADO_SM
+                        )
+                )
+        );
 
-        panelConfiguracion.add(botonGenerar);
+        selectorEstrategia.setRenderer(
+                new DefaultListCellRenderer() {
+
+                    @Override
+                    public Component getListCellRendererComponent(
+                            JList<?> lista,
+                            Object valor,
+                            int indice,
+                            boolean seleccionado,
+                            boolean enfocado
+                    ) {
+
+                        super.getListCellRendererComponent(
+                                lista,
+                                valor,
+                                indice,
+                                seleccionado,
+                                enfocado
+                        );
+
+                        setFont(FUENTE_NORMAL);
+
+                        if (seleccionado) {
+                            setBackground(PRIMARIO);
+                            setForeground(Color.WHITE);
+                        } else {
+                            setBackground(SUPERFICIE);
+                            setForeground(TEXTO);
+                        }
+
+                        setBorder(
+                                BorderFactory.createEmptyBorder(
+                                        ESPACIADO_XS,
+                                        ESPACIADO_SM,
+                                        ESPACIADO_XS,
+                                        ESPACIADO_SM
+                                )
+                        );
+
+                        return this;
+                    }
+                }
+        );
+
+        return selectorEstrategia;
+    }
+
+    // ==========================================
+    // DESCRIPCIÓN DE ESTRATEGIA
+    // ==========================================
+
+    private JLabel crearDescripcionEstrategia() {
 
         etiquetaDescripcionEstrategia.setFont(
                 FUENTE_PEQUENA
@@ -248,22 +495,109 @@ public class FormularioEnvioLavanderia extends JDialog {
                 )
         );
 
-        contenedor.add(
+        return etiquetaDescripcionEstrategia;
+    }
+
+    private void actualizarDescripcionEstrategia() {
+
+        String seleccion =
+                (String) selectorEstrategia.getSelectedItem();
+
+        if ("FIFO".equals(seleccion)) {
+
+            etiquetaDescripcionEstrategia.setText(
+                    "FIFO: las primeras solicitudes recibidas "
+                            + "son las primeras en ser atendidas."
+            );
+
+        } else {
+
+            etiquetaDescripcionEstrategia.setText(
+                    "Prioridad: las solicitudes especiales, manchadas "
+                            + "y delicadas se atienden primero. FIFO desempata."
+            );
+        }
+    }
+
+    // ==========================================
+    // PANEL DE TABLA
+    // ==========================================
+
+    private JPanel crearPanelTabla() {
+
+        JPanel panel = new JPanel(
+                new BorderLayout(
+                        0,
+                        ESPACIADO_SM
+                )
+        );
+
+        panel.setOpaque(false);
+
+        JLabel titulo = crearEtiqueta(
+                "Solicitudes seleccionadas",
+                FUENTE_SECCION,
+                TEXTO
+        );
+
+        panelTabla.setBusquedaVisible(false);
+        panelTabla.setPanelFiltrosVisible(false);
+        panelTabla.setModelo(modeloTabla);
+        panelTabla.getPanelControles().setVisible(false);
+        JTable tabla = panelTabla.getTablaDatos().getTabla();
+
+        tabla.setFillsViewportHeight(true);
+        tabla.setRowHeight(ALTO_FILA_TABLA);
+        tabla.setAutoCreateRowSorter(false);
+
+        tabla.setSelectionMode(
+                ListSelectionModel.SINGLE_SELECTION
+        );
+
+        tabla.getTableHeader().setReorderingAllowed(false);
+
+        panelTabla.getTablaDatos()
+                .setOrdenamientoHabilitado(false);
+
+        panel.add(
                 titulo,
                 BorderLayout.NORTH
         );
 
-        contenedor.add(
-                panelConfiguracion,
+        panel.add(
+                panelTabla,
                 BorderLayout.CENTER
         );
 
-        contenedor.add(
-                etiquetaDescripcionEstrategia,
-                BorderLayout.SOUTH
-        );
+        return panel;
+    }
 
-        return contenedor;
+    // ==========================================
+    // MODELO DE TABLA
+    // ==========================================
+
+    private DefaultTableModel crearModeloTabla() {
+
+        return new DefaultTableModel(
+                new Object[]{
+                        "Solicitud",
+                        "Referencia",
+                        "Marca",
+                        "Talla",
+                        "Prioridad",
+                        "Fecha de recepción"
+                },
+                0
+        ) {
+
+            @Override
+            public boolean isCellEditable(
+                    int fila,
+                    int columna
+            ) {
+                return false;
+            }
+        };
     }
 
     // ==========================================
@@ -280,6 +614,10 @@ public class FormularioEnvioLavanderia extends JDialog {
                 e -> confirmarEnvio()
         );
 
+        botonCancelar.addActionListener(
+                e -> dispose()
+        );
+
         selectorEstrategia.addActionListener(
                 e -> {
                     actualizarDescripcionEstrategia();
@@ -293,36 +631,12 @@ public class FormularioEnvioLavanderia extends JDialog {
     }
 
     // ==========================================
-    // DESCRIPCIÓN DE ESTRATEGIA
-    // ==========================================
-
-    private void actualizarDescripcionEstrategia() {
-
-        String seleccion =
-                (String) selectorEstrategia.getSelectedItem();
-
-        if ("FIFO".equals(seleccion)) {
-
-            etiquetaDescripcionEstrategia.setText(
-                    "FIFO: primero en llegar, primero en ser atendido."
-            );
-
-        } else {
-
-            etiquetaDescripcionEstrategia.setText(
-                    "Prioridad: solicitudes especiales, manchadas y "
-                            + "delicadas antes que las normales. FIFO desempata."
-            );
-        }
-    }
-
-    // ==========================================
     // INVALIDAR TANDA
     // ==========================================
 
     private void invalidarTanda() {
 
-        if (tanda.isEmpty()) {
+        if (procesando || tanda.isEmpty()) {
             return;
         }
 
@@ -335,61 +649,6 @@ public class FormularioEnvioLavanderia extends JDialog {
         );
 
         actualizarEstadoConfirmacion();
-    }
-
-    // ==========================================
-    // CONFIGURACIÓN DE TABLA
-    // ==========================================
-
-    private void configurarTabla() {
-
-        tabla.setFillsViewportHeight(true);
-        tabla.setRowHeight(ALTO_FILA_TABLA);
-
-        tabla.setAutoCreateRowSorter(false);
-
-        tabla.setSelectionMode(
-                ListSelectionModel.SINGLE_SELECTION
-        );
-
-        tabla.getTableHeader().setReorderingAllowed(false);
-
-        tabla.getTableHeader().setFont(
-                FUENTE_NORMAL
-        );
-
-        tabla.setFont(FUENTE_NORMAL);
-        tabla.setForeground(TEXTO);
-        tabla.setBackground(SUPERFICIE);
-        tabla.setSelectionBackground(PRIMARIO);
-    }
-
-    // ==========================================
-    // MODELO DE TABLA
-    // ==========================================
-
-    private DefaultTableModel crearModeloTabla() {
-
-        return new DefaultTableModel(
-                new Object[]{
-                        "Solicitud",
-                        "Referencia",
-                        "Marca",
-                        "Talla",
-                        "Prioridad",
-                        "Fecha recepción"
-                },
-                0
-        ) {
-
-            @Override
-            public boolean isCellEditable(
-                    int fila,
-                    int columna
-            ) {
-                return false;
-            }
-        };
     }
 
     // ==========================================
@@ -410,12 +669,12 @@ public class FormularioEnvioLavanderia extends JDialog {
                     (String) selectorEstrategia.getSelectedItem();
 
             if (estrategiaSeleccionada == null) {
+
                 throw new IllegalStateException(
                         "Debe seleccionar una estrategia."
                 );
             }
 
-            // Configurar la estrategia seleccionada.
             if ("FIFO".equals(estrategiaSeleccionada)) {
 
                 gestorLavanderia.cambiarEstrategia(
@@ -429,7 +688,6 @@ public class FormularioEnvioLavanderia extends JDialog {
                 );
             }
 
-            // Obtener la tanda sin confirmar el envío.
             List<ISolicitudLavanderia> resultado =
                     gestorLavanderia.seleccionarTanda(cupo);
 
@@ -445,6 +703,8 @@ public class FormularioEnvioLavanderia extends JDialog {
                         "No hay solicitudes pendientes para enviar."
                 );
 
+                actualizarEstadoConfirmacion();
+
                 JOptionPane.showMessageDialog(
                         this,
                         "No hay solicitudes pendientes disponibles.",
@@ -452,7 +712,6 @@ public class FormularioEnvioLavanderia extends JDialog {
                         JOptionPane.INFORMATION_MESSAGE
                 );
 
-                actualizarEstadoConfirmacion();
                 return;
             }
 
@@ -500,21 +759,27 @@ public class FormularioEnvioLavanderia extends JDialog {
 
             IPrenda prenda = obtenerPrenda(solicitud);
 
-            modeloTabla.addRow(new Object[]{
-                    solicitud.getIdSolicitud(),
-                    prenda != null
-                            ? prenda.getReferencia()
-                            : "N/D",
-                    prenda != null
-                            ? prenda.getMarca()
-                            : "N/D",
-                    prenda != null
-                            ? prenda.getTalla()
-                            : "N/D",
-                    solicitud.getPrioridad(),
-                    solicitud.getFechaRecepcion()
-            });
+            modeloTabla.addRow(
+                    new Object[]{
+                            solicitud.getIdSolicitud(),
+                            prenda != null
+                                    ? prenda.getReferencia()
+                                    : "N/D",
+                            prenda != null
+                                    ? prenda.getMarca()
+                                    : "N/D",
+                            prenda != null
+                                    ? prenda.getTalla()
+                                    : "N/D",
+                            solicitud.getPrioridad(),
+                            solicitud.getFechaRecepcion()
+                    }
+            );
         }
+
+        panelTabla.getTablaDatos()
+                .getTabla()
+                .clearSelection();
     }
 
     // ==========================================
@@ -544,13 +809,16 @@ public class FormularioEnvioLavanderia extends JDialog {
 
     private void actualizarEstadoConfirmacion() {
 
-        botonConfirmar.setEnabled(
+        boolean habilitado =
                 !procesando
                         && tanda != null
-                        && !tanda.isEmpty()
-        );
+                        && !tanda.isEmpty();
+
+        botonConfirmar.setEnabled(habilitado);
 
         botonGenerar.setEnabled(!procesando);
+        botonCancelar.setEnabled(!procesando);
+
         campoCupo.setEnabled(!procesando);
         selectorEstrategia.setEnabled(!procesando);
     }
@@ -607,6 +875,7 @@ public class FormularioEnvioLavanderia extends JDialog {
                     );
 
             if (lote == null) {
+
                 throw new IllegalStateException(
                         "El gestor no devolvió el lote confirmado."
                 );
@@ -626,9 +895,13 @@ public class FormularioEnvioLavanderia extends JDialog {
             dispose();
 
             if (alConfirmar != null) {
+
                 try {
+
                     alConfirmar.run();
+
                 } catch (RuntimeException ex) {
+
                     ex.printStackTrace(System.err);
 
                     JOptionPane.showMessageDialog(
@@ -659,19 +932,19 @@ public class FormularioEnvioLavanderia extends JDialog {
 
     private JPanel crearPanelInferior() {
 
-        JPanel panelInferior = new JPanel(
+        JPanel inferior = new JPanel(
                 new BorderLayout(
                         ESPACIADO_MD,
                         0
                 )
         );
 
-        panelInferior.setOpaque(false);
+        inferior.setOpaque(false);
 
         etiquetaCantidad.setFont(FUENTE_NORMAL);
         etiquetaCantidad.setForeground(TEXTO_SECUNDARIO);
 
-        JPanel panelAcciones = new JPanel(
+        JPanel acciones = new JPanel(
                 new FlowLayout(
                         FlowLayout.RIGHT,
                         ESPACIADO_SM,
@@ -679,29 +952,48 @@ public class FormularioEnvioLavanderia extends JDialog {
                 )
         );
 
-        panelAcciones.setOpaque(false);
+        acciones.setOpaque(false);
 
-        BotonSecundario botonCancelar =
-                new BotonSecundario("Cancelar");
-
-        botonCancelar.addActionListener(
-                e -> dispose()
+        botonCancelar.configurarIcono(
+                IconosUI.cancelar()
         );
 
-        panelAcciones.add(botonCancelar);
-        panelAcciones.add(botonConfirmar);
+        botonConfirmar.configurarIcono(
+                IconosUI.guardar()
+        );
 
-        panelInferior.add(
+        acciones.add(botonCancelar);
+        acciones.add(botonConfirmar);
+
+        inferior.add(
                 etiquetaCantidad,
                 BorderLayout.CENTER
         );
 
-        panelInferior.add(
-                panelAcciones,
+        inferior.add(
+                acciones,
                 BorderLayout.EAST
         );
 
-        return panelInferior;
+        return inferior;
+    }
+
+    // ==========================================
+    // ETIQUETAS
+    // ==========================================
+
+    private JLabel crearEtiqueta(
+            String texto,
+            Font fuente,
+            Color color
+    ) {
+
+        JLabel etiqueta = new JLabel(texto);
+
+        etiqueta.setFont(fuente);
+        etiqueta.setForeground(color);
+
+        return etiqueta;
     }
 
     // ==========================================
@@ -736,6 +1028,7 @@ public class FormularioEnvioLavanderia extends JDialog {
     // ==========================================
 
     public void mostrar() {
+
         setLocationRelativeTo(getOwner());
         setVisible(true);
     }

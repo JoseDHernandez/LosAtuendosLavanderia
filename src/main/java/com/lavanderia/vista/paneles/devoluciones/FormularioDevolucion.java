@@ -1,4 +1,3 @@
-
 package com.lavanderia.vista.paneles.devoluciones;
 
 import com.lavanderia.modelo.enums.EstadoRevision;
@@ -106,6 +105,8 @@ public class FormularioDevolucion extends JDialog {
                 EstadoRevision.values()
         );
 
+        configurarSelectorEstado();
+
         this.campoObservaciones = new JTextArea(4, 30);
 
         this.etiquetaDetalle = new JLabel();
@@ -114,6 +115,8 @@ public class FormularioDevolucion extends JDialog {
 
         inicializarComponentes();
         configurarSelectorDetalle();
+        configurarEstiloSelector(selectorDetalle);
+        configurarEstiloSelector(selectorEstado);
         configurarCampoObservaciones();
 
         cargarDetallesDisponibles();
@@ -208,7 +211,7 @@ public class FormularioDevolucion extends JDialog {
         formulario.agregarCampo(
                 crearCampo(
                         "Observaciones",
-                        new JScrollPane(campoObservaciones)
+                        crearScrollObservaciones()
                 ),
                 2,
                 0,
@@ -253,7 +256,12 @@ public class FormularioDevolucion extends JDialog {
         pack();
 
         setMinimumSize(
-                new Dimension(ANCHO_DIALOGO + 180, 520)
+                new Dimension(700, 620)
+        );
+
+        setSize(
+                Math.max(getPreferredSize().width, 760),
+                Math.max(getPreferredSize().height, 650)
         );
 
         setLocationRelativeTo(getOwner());
@@ -301,16 +309,31 @@ public class FormularioDevolucion extends JDialog {
         campoObservaciones.setBackground(SUPERFICIE);
 
         campoObservaciones.setBorder(
-                BorderFactory.createCompoundBorder(
-                        BORDE_SIMPLE,
-                        BorderFactory.createEmptyBorder(
-                                ESPACIADO_SM,
-                                ESPACIADO_SM,
-                                ESPACIADO_SM,
-                                ESPACIADO_SM
-                        )
+                BorderFactory.createEmptyBorder(
+                        ESPACIADO_SM,
+                        ESPACIADO_SM,
+                        ESPACIADO_SM,
+                        ESPACIADO_SM
                 )
         );
+
+        campoObservaciones.setRows(4);
+        campoObservaciones.setColumns(30);
+    }
+
+    private JScrollPane crearScrollObservaciones() {
+
+        JScrollPane scroll = new JScrollPane(
+                campoObservaciones,
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+        );
+
+        scroll.setBorder(BORDE_SIMPLE);
+        scroll.setPreferredSize(new Dimension(520, 125));
+        scroll.getViewport().setBackground(SUPERFICIE);
+
+        return scroll;
     }
 
     // ==========================================
@@ -342,10 +365,133 @@ public class FormularioDevolucion extends JDialog {
                             setText(opcion.toString());
                         }
 
+                        aplicarEstiloCeldaSelector(
+                                this,
+                                seleccionado
+                        );
+
                         return this;
                     }
                 }
         );
+    }
+
+    /**
+     * El combo conserva EstadoRevision como valor real, pero muestra
+     * textos comprensibles para el usuario.
+     */
+    private void configurarSelectorEstado() {
+
+        selectorEstado.setRenderer(
+                new DefaultListCellRenderer() {
+
+                    @Override
+                    public Component getListCellRendererComponent(
+                            JList<?> lista,
+                            Object valor,
+                            int indice,
+                            boolean seleccionado,
+                            boolean enfocado) {
+
+                        super.getListCellRendererComponent(
+                                lista,
+                                valor,
+                                indice,
+                                seleccionado,
+                                enfocado
+                        );
+
+                        if (valor instanceof EstadoRevision estado) {
+                            setText(textoEstadoRevision(estado));
+                        }
+
+                        aplicarEstiloCeldaSelector(
+                                this,
+                                seleccionado
+                        );
+
+                        return this;
+                    }
+                }
+        );
+    }
+
+    private String textoEstadoRevision(EstadoRevision estado) {
+
+        return switch (estado) {
+            case PENDIENTE -> "Pendiente de revisión";
+            case SIN_NOVEDAD -> "Sin novedades";
+            case CON_NOVEDAD -> "Con novedades";
+        };
+    }
+
+
+    private void configurarEstiloSelector(JComboBox<?> selector) {
+
+        selector.setFont(FUENTE_NORMAL);
+        selector.setForeground(TEXTO);
+        selector.setBackground(SUPERFICIE);
+        selector.setFocusable(true);
+
+        selector.setPreferredSize(
+                new Dimension(
+                        ANCHO_CAMPO_MINIMO,
+                        ALTO_CAMPO
+                )
+        );
+
+        selector.setMinimumSize(
+                new Dimension(
+                        ANCHO_CAMPO_MINIMO,
+                        ALTO_CAMPO
+                )
+        );
+
+        selector.setMaximumSize(
+                new Dimension(
+                        Integer.MAX_VALUE,
+                        ALTO_CAMPO
+                )
+        );
+
+        selector.setBorder(
+                BorderFactory.createCompoundBorder(
+                        BORDE_SIMPLE,
+                        BorderFactory.createEmptyBorder(
+                                0,
+                                ESPACIADO_SM,
+                                0,
+                                ESPACIADO_SM
+                        )
+                )
+        );
+    }
+
+
+    private void aplicarEstiloCeldaSelector(
+            JLabel etiqueta,
+            boolean seleccionado
+    ) {
+
+        etiqueta.setFont(FUENTE_NORMAL);
+        etiqueta.setBorder(
+                BorderFactory.createEmptyBorder(
+                        ESPACIADO_XS,
+                        ESPACIADO_SM,
+                        ESPACIADO_XS,
+                        ESPACIADO_SM
+                )
+        );
+
+        if (seleccionado) {
+            etiqueta.setBackground(PRIMARIO);
+            etiqueta.setForeground(Color.WHITE);
+            etiqueta.setOpaque(true);
+        } else {
+            etiqueta.setBackground(SUPERFICIE);
+            etiqueta.setForeground(TEXTO);
+            etiqueta.setOpaque(true);
+        }
     }
 
     // ==========================================
