@@ -3,6 +3,7 @@ package com.lavanderia;
 
 import com.lavanderia.conexion.DAOFactory;
 import com.lavanderia.conexion.SQLiteDAOFactory;
+import com.lavanderia.database.DataSeeder;
 
 import com.lavanderia.dao.interfaces.*;
 import com.lavanderia.modelo.interfaces.*;
@@ -61,11 +62,22 @@ public class Main {
 
             try {
 
-                // 1. Inicializar el sistema
+                // 1. Inicializar los datos de demostración sin impedir el arranque de Swing.
+                try {
+                    new DataSeeder().seedDatabase();
+                } catch (RuntimeException e) {
+                    System.err.println(
+                            "No fue posible cargar los datos iniciales. "
+                                    + "La interfaz continuará con la base disponible: "
+                                    + e.getMessage()
+                    );
+                }
+
+                // 2. Inicializar el sistema
                 ISistemaFacade sistemaFacade =
                         inicializarSistemaFacade();
 
-                // 2. Validadores especializados para las vistas
+                // 3. Validadores especializados para las vistas
                 IPersonaValidator clienteValidator =
                         new ClienteValidator();
 
@@ -78,7 +90,7 @@ public class Main {
                 IAlquilerValidator alquilerValidator =
                         new AlquilerValidator();
 
-                // 3. Registrar módulos
+                // 4. Registrar módulos
                 List<IModuloVista> modulos = List.of(
 
                         new PanelInicio(sistemaFacade),
@@ -112,7 +124,7 @@ public class Main {
                         )
                 );
 
-                // 4. Crear ventana principal
+                // 5. Crear ventana principal
                 MainFrame ventana = new MainFrame(
                         modulos,
                         "inicio"

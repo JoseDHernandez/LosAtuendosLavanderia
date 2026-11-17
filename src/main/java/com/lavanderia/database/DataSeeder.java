@@ -23,6 +23,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -187,6 +188,8 @@ public final class DataSeeder {
     }
 
     private void seedRentalAndLaundry(Connection connection) throws SQLException {
+        resetSeedRentalData(connection);
+
         long clientId = idByIdentification(connection, "10001");
         long secondClientId = idByIdentification(connection, "10002");
         long employeeId = idByIdentification(connection, "20001");
@@ -249,13 +252,8 @@ public final class DataSeeder {
                 detailId, "2026-01-08", "Requiere lavado delicado.", "PENDIENTE");
         long returnId = returnId(connection, detailId);
 
-        execute(connection,
-                """
-                INSERT OR IGNORE INTO SOLICITUD_LAVANDERIA
-                    (id_devolucion, id_lote, fecha_recepcion, prioridad, estado)
-                VALUES (?, NULL, ?, ?, ?)
-                """,
-                returnId, "2026-01-08", "DELICADA", "PENDIENTE");
+        insertPendingLaundryRequest(
+                connection, returnId, returnedGarmentId, "2026-01-08", "DELICADA");
 
         long secondDetailId = detailId(connection, 9006, secondReturnedGarmentId);
         execute(connection,
@@ -267,14 +265,82 @@ public final class DataSeeder {
                 secondDetailId, "2026-01-09", "Limpieza especial por pedreria.", "PENDIENTE");
         long secondReturnId = returnId(connection, secondDetailId);
 
+        insertPendingLaundryRequest(
+                connection, secondReturnId, secondReturnedGarmentId, "2026-01-09", "ESPECIAL");
+        System.out.println("Alquileres, devolución y solicitudes de lavandería pendientes "
+                + "insertados/verificados: " + countPendingLaundryRequests(connection) + ".");
+    }
+
+    /**
+     * Elimina únicamente el conjunto de alquileres reservado para los datos de demostración.
+     * Se respeta el orden de las claves foráneas para poder reparar una base ya utilizada sin
+     * borrar alquileres reales ni requerir eliminar el archivo SQLite.
+     */
+    private static void resetSeedRentalData(Connection connection) throws SQLException {
+        int[] seedRentalNumbers = {9001, 9002, 9003, 9004, 9005, 9006};
+        String placeholders = String.join(",", Arrays.stream(seedRentalNumbers)
+                .mapToObj(number -> "?")
+                .toList());
+
+        execute(connection,
+                "DELETE FROM SOLICITUD_LAVANDERIA WHERE id_devolucion IN ("
+                        + "SELECT v.id_devolucion FROM DEVOLUCION v "
+                        + "JOIN DETALLE_ALQUILER d ON d.id_detalle = v.id_detalle "
+                        + "JOIN ALQUILER a ON a.id_alquiler = d.id_alquiler "
+                        + "WHERE a.numero_consecutivo IN (" + placeholders + "))",
+                toObjects(seedRentalNumbers));
+        execute(connection,
+                "DELETE FROM DEVOLUCION WHERE id_detalle IN ("
+                        + "SELECT d.id_detalle FROM DETALLE_ALQUILER d "
+                        + "JOIN ALQUILER a ON a.id_alquiler = d.id_alquiler "
+                        + "WHERE a.numero_consecutivo IN (" + placeholders + "))",
+                toObjects(seedRentalNumbers));
+        execute(connection,
+                "DELETE FROM DETALLE_ALQUILER WHERE id_alquiler IN ("
+                        + "SELECT id_alquiler FROM ALQUILER "
+                        + "WHERE numero_consecutivo IN (" + placeholders + "))",
+                toObjects(seedRentalNumbers));
+        execute(connection,
+                "DELETE FROM ALQUILER WHERE numero_consecutivo IN (" + placeholders + ")",
+                toObjects(seedRentalNumbers));
+    }
+
+    private static Object[] toObjects(int[] values) {
+        return Arrays.stream(values).boxed().toArray();
+    }
+
+    private void insertPendingLaundryRequest(
+            Connection connection,
+            long returnId,
+            long garmentId,
+            String receptionDate,
+            String priority) throws SQLException {
         execute(connection,
                 """
                 INSERT OR IGNORE INTO SOLICITUD_LAVANDERIA
                     (id_devolucion, id_lote, fecha_recepcion, prioridad, estado)
-                VALUES (?, NULL, ?, ?, ?)
+                SELECT ?, NULL, ?, ?, 'PENDIENTE'
+                WHERE EXISTS (
+                    SELECT 1
+                    FROM DEVOLUCION v
+                    JOIN DETALLE_ALQUILER d ON d.id_detalle = v.id_detalle
+                    JOIN PRENDA p ON p.id_prenda = d.id_prenda
+                    WHERE v.id_devolucion = ? AND p.id_prenda = ?
+                )
                 """,
-                secondReturnId, "2026-01-09", "ESPECIAL", "PENDIENTE");
-        System.out.println("Alquileres, devolución y solicitud de lavandería insertados/verificados.");
+                returnId, receptionDate, priority, returnId, garmentId);
+    }
+
+    private static long countPendingLaundryRequests(Connection connection) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT COUNT(*)
+                FROM SOLICITUD_LAVANDERIA
+                WHERE estado = 'PENDIENTE' AND id_lote IS NULL
+                """);
+             ResultSet resultSet = statement.executeQuery()) {
+            resultSet.next();
+            return resultSet.getLong(1);
+        }
     }
 
     private void insertPerson(Connection connection, IPersona person) throws SQLException {
